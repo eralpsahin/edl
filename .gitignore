@@ -1,0 +1,7 @@
+# Mac folder attributes
+*.DS_Store
+
+# Build folder
+build/
+
+*.ll
