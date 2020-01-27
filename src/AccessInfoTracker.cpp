@@ -53,10 +53,10 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
 
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
-  std::string file_name = "accinfo";
-  file_name += ".txt";
+  std::string file_name = "enclave";
+  file_name += ".edl";
   idl_file.open(file_name);
-  idl_file << "module kernel()" << " {\n";
+  idl_file << "enclave" << " {\n";
 
   for (auto funcName : importedFuncList)
   {
@@ -87,7 +87,7 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
     generateIDLforFunc(*func);
   }
 
-  idl_file << "}";
+  idl_file << "};";
   // printGlobalLockWarningFunc();
 
   idl_file.close();
