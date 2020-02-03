@@ -668,50 +668,6 @@ void pdg::AccessInfoTracker::generateIDLforFuncPtrWithDI(DIType *funcDIType, Mod
   }
 }
 
-void pdg::AccessInfoTracker::generateIDLforFuncPtr(Type *ty, std::string funcName, Function &F)
-{
-  if (PointerType *pty = dyn_cast<PointerType>(ty))
-  {
-    if (FunctionType *fty = dyn_cast<FunctionType>(pty->getElementType()))
-    {
-      auto &pdgUtils = PDGUtils::getInstance();
-      auto indirectCallTargets = PDG->collectIndirectCallCandidates(fty, F, definedFuncList);
-      if (indirectCallTargets.size() == 0)
-      {
-        errs() << funcName << ": Genearting for func ptr. Call targets size is 0." << "\n";
-        return;
-      }
-
-      auto mergeToFunc = indirectCallTargets[0];
-      auto mergeToFuncW = pdgUtils.getFuncMap()[mergeToFunc];
-
-      for (auto f : indirectCallTargets) {
-        PDG->buildPDGForFunc(f);
-        getIntraFuncReadWriteInfoForFunc(*f);
-        // getInterFuncReadWriteInfo(*f);
-      }
-
-      for (int i = 0; i < mergeToFunc->arg_size(); ++i)
-      {
-        auto mergeToArgW = mergeToFuncW->getArgWByIdx(i);
-        auto mergeToArg = mergeToArgW->getArg();
-        if (!PDG->isStructPointer(mergeToArg->getType()))
-          continue;
-        auto oldMergeToArgTree = tree<InstructionWrapper*>(mergeToArgW->getTree(TreeType::FORMAL_IN_TREE));
-        for (int j = 1; j < indirectCallTargets.size(); ++j)
-        {
-          auto mergeFromArgW = pdgUtils.getFuncMap()[indirectCallTargets[j]]->getArgWByIdx(i);
-          mergeArgAccessInfo(mergeToArgW, mergeFromArgW, mergeToArgW->tree_begin(TreeType::FORMAL_IN_TREE));
-        }
-        // after merging, start generating projection
-        generateIDLforArg(mergeToArgW, TreeType::FORMAL_IN_TREE, funcName, false);
-        // printArgAccessInfo(mergeToArgW, TreeType::FORMAL_IN_TREE);
-        mergeToArgW->setTree(oldMergeToArgTree, TreeType::FORMAL_IN_TREE);
-      }
-    }
-  }
-}
-
 void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType treeTy, std::string funcName, bool handleFuncPtr)
 {
   auto &pdgUtils = PDGUtils::getInstance();
@@ -875,27 +831,6 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   }
 }
 
-std::string pdg::AccessInfoTracker::getAllocAttribute(std::string projStr, bool passToKernel)
-{
-  if (passToKernel) // look up in callee's store
-  {
-    if (kernelObjStore.find(projStr) == kernelObjStore.end())
-    {
-      kernelObjStore.insert(projStr);
-      return "[alloc(callee)]";
-    }
-  }
-  else
-  {
-    if (deviceObjStore.find(projStr) == deviceObjStore.end())
-    {
-      deviceObjStore.insert(projStr);
-      return "[alloc(caller)]";
-    }
-  }
-  return "";
-}
-
 std::string pdg::getAccessAttributeName(tree<InstructionWrapper *>::iterator treeI)
 {
   std::vector<std::string> access_attribute = {
@@ -904,50 +839,6 @@ std::string pdg::getAccessAttributeName(tree<InstructionWrapper *>::iterator tre
       "[out]"};
   int accessIdx = static_cast<int>((*treeI)->getAccessType());
   return access_attribute[accessIdx];
-}
-
-std::string pdg::AccessInfoTracker::getArgAccessInfo(Argument &arg)
-{
-  auto &pdgUtils = PDGUtils::getInstance();
-  std::vector<std::string> mod_info = {"U", "R", "W", "T"};
-  ArgumentWrapper *argW = pdgUtils.getFuncMap()[arg.getParent()]->getArgWByArg(arg);
-  return mod_info[static_cast<int>((*argW->getTree(TreeType::FORMAL_IN_TREE).begin())->getAccessType())];
-}
-
-
-// finding shared gloal locks
-void pdg::AccessInfoTracker::printGlobalLockWarningFunc()
-{
-  CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-  bool accessK = false;
-  bool accessD = false;
-  for (auto nodeIter = CG->begin(); nodeIter != CG->end(); ++nodeIter)
-  {
-    if (!(*nodeIter).first)
-      continue;
-
-    std::vector<std::string> lockCallerNameList;
-    for (auto calleeIter = ((*nodeIter).second)->begin(); calleeIter != ((*nodeIter).second)->end(); ++calleeIter)
-    {
-      Function *Func = (*calleeIter).second->getFunction();
-      if (!Func)
-        continue;
-      if (lockFuncList.find(Func->getName()) != lockFuncList.end())
-      {
-        auto callerName = (*nodeIter).first->getName();
-        if (importedFuncList.find(callerName) != importedFuncList.end())
-          accessK = true;
-        else
-          accessD = true;
-        lockCallerNameList.push_back(callerName);
-      }
-    }
-    if (accessD && accessK)
-    {
-      for (auto callerFuncName : lockCallerNameList)
-        errs() << "Warning: Global shared lock found in function " << callerFuncName << "\n";
-    }
-  }
 }
 
 static RegisterPass<pdg::AccessInfoTracker>
