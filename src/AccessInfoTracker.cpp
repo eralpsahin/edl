@@ -10,53 +10,47 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   std::ifstream importedFuncs("imported_func.txt");
   std::ifstream definedFuncs("defined_func.txt");
   std::ifstream blackFuncs("blacklist.txt");
-  std::ifstream static_funcptr("static_funcptr.txt"); 
-  std::ifstream static_func("static_func.txt"); 
+  std::ifstream static_funcptr("static_funcptr.txt");
+  std::ifstream static_func("static_func.txt");
   std::ifstream lock_funcs("lock_func.txt");
-
   // process global shared lock
-  for (std::string line; std::getline(lock_funcs, line);) 
+  for (std::string line; std::getline(lock_funcs, line);)
     lockFuncList.insert(line);
-
   for (std::string line; std::getline(blackFuncs, line);)
     blackFuncList.insert(line);
-
-  for (std::string staticFuncLine, funcPtrLine; std::getline(static_func, staticFuncLine), std::getline(static_funcptr, funcPtrLine);)
-  {
+  for (std::string staticFuncLine, funcPtrLine;
+       std::getline(static_func, staticFuncLine),
+       std::getline(static_funcptr, funcPtrLine);) {
     staticFuncList.insert(staticFuncLine);
     staticFuncptrList.insert(funcPtrLine);
-    driverFuncPtrCallTargetMap[funcPtrLine] = staticFuncLine; // map each function ptr name with corresponding defined func in isolated device
+    driverFuncPtrCallTargetMap[funcPtrLine] =
+        staticFuncLine;  // map each function ptr name with corresponding
+                         // defined func in isolated device
   }
-
   for (std::string line; std::getline(importedFuncs, line);)
-  {
     if (blackFuncList.find(line) == blackFuncList.end())
       importedFuncList.insert(line);
-  }
-
   for (std::string line; std::getline(definedFuncs, line);)
-  {
     definedFuncList.insert(line);
-  }
 
   // importedFuncList.insert(staticFuncptrList.begin(), staticFuncptrList.end());
   seenFuncOps = false;
   kernelFuncList = importedFuncList;
 
+  //?  Execute the PDG analysis here
   auto &pdgUtils = PDGUtils::getInstance(); PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
-
   if (!USEDEBUGINFO)
   {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
     exit(0);
   }
-
+  //?  Execute Call Wrapper analysis here
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
   std::string file_name = "enclave";
   file_name += ".edl";
   idl_file.open(file_name);
-  idl_file << "enclave" << " {\n";
+  idl_file << "enclave" << " {\n\n\ttrusted {\n";
 
   for (auto funcName : importedFuncList)
   {
@@ -86,6 +80,42 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
     errs() << "Cross boundary? " << crossBoundary << "\n";
     generateIDLforFunc(*func);
   }
+
+  idl_file << "\t};\n";
+
+  //! Writing untrusted part
+  idl_file << "\tuntrusted {\n";
+
+  for (auto itr = definedFuncList.begin(); itr != definedFuncList.end();
+       ++itr) {
+    //idl_file << "\t\t"<< *itr <<"(" << ")" << "\n";
+    sharedFieldMap.clear();
+    crossBoundary = false;
+    curImportedTransFuncName = *itr;
+    auto func = M.getFunction(StringRef(*itr));
+    if (*itr == "main") continue;
+    if (func->isDeclaration()) continue;
+    auto transClosure = getTransitiveClosure(*func);
+    for (std::string staticFuncName : staticFuncList) {
+      Function *staticFunc = M.getFunction(StringRef(staticFuncName));
+      if (staticFunc && !staticFunc->isDeclaration())
+        transClosure.push_back(staticFunc);
+    }
+    for (auto iter = transClosure.rbegin(); iter != transClosure.rend();
+         iter++) {
+      auto transFunc = *iter;
+      if (transFunc->isDeclaration()) continue;
+      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() ||
+          staticFuncList.find(transFunc->getName()) != staticFuncList.end())
+        crossBoundary = true;
+      getIntraFuncReadWriteInfoForFunc(*transFunc);
+      getInterFuncReadWriteInfo(*transFunc);
+    }
+    errs() << "Cross boundary? " << crossBoundary << "\n";
+    generateIDLforFunc(*func);
+  }
+  idl_file << "\t};\n";
+
 
   idl_file << "};";
   // printGlobalLockWarningFunc();
@@ -547,7 +577,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     retTypeName = "projection " + retTypeName + "_" + funcName;
   }
   
-  idl_file << "\trpc " << retTypeName << " " << F.getName().str() << "( ";
+  idl_file << "\t\tpublic " << retTypeName << " " << F.getName().str() << "( ";
   // handle parameters
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList())
   {
