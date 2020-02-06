@@ -1,11 +1,4 @@
 {
   "editor.tabSize": 2,
-  "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 2 }",
-  "C_Cpp.default.includePath": [
-    "/usr/local/Cellar/llvm/9.0.0_1/include/", // LLVM include
-    "${workspaceFolder}/include",
-  ],
-  "files.associations": {
-    "*.tpp": "cpp"
-  }
+  "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 2 }"
 }
