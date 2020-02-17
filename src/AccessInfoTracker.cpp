@@ -83,40 +83,6 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
 
   idl_file << "\t};\n";
 
-  //! Writing untrusted part
-  idl_file << "\tuntrusted {\n";
-
-  for (auto itr = definedFuncList.begin(); itr != definedFuncList.end();
-       ++itr) {
-    //idl_file << "\t\t"<< *itr <<"(" << ")" << "\n";
-    sharedFieldMap.clear();
-    crossBoundary = false;
-    curImportedTransFuncName = *itr;
-    auto func = M.getFunction(StringRef(*itr));
-    if (*itr == "main") continue;
-    if (func->isDeclaration()) continue;
-    auto transClosure = getTransitiveClosure(*func);
-    for (std::string staticFuncName : staticFuncList) {
-      Function *staticFunc = M.getFunction(StringRef(staticFuncName));
-      if (staticFunc && !staticFunc->isDeclaration())
-        transClosure.push_back(staticFunc);
-    }
-    for (auto iter = transClosure.rbegin(); iter != transClosure.rend();
-         iter++) {
-      auto transFunc = *iter;
-      if (transFunc->isDeclaration()) continue;
-      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() ||
-          staticFuncList.find(transFunc->getName()) != staticFuncList.end())
-        crossBoundary = true;
-      getIntraFuncReadWriteInfoForFunc(*transFunc);
-      getInterFuncReadWriteInfo(*transFunc);
-    }
-    errs() << "Cross boundary? " << crossBoundary << "\n";
-    generateIDLforFunc(*func);
-  }
-  idl_file << "\t};\n";
-
-
   idl_file << "};";
   // printGlobalLockWarningFunc();
 
