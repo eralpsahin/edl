@@ -2,7 +2,11 @@
 #include "llvm/IR/InstIterator.h"
 
 using namespace llvm;
-
+/**
+ * All instructions of the function are wrapped as a graph node.
+ * G_instMap is a map from instruction to its wrapper.
+ * funcInstWMap is a map from function to a list of its instructions' wrapper. 
+ */ 
 void pdg::PDGUtils::constructInstMap(Function &F)
 {
   for (inst_iterator I = inst_begin(F); I != inst_end(F); ++I)
@@ -16,6 +20,12 @@ void pdg::PDGUtils::constructInstMap(Function &F)
   }
 }
 
+/**
+ * All functions of the module are analyzed and a wrapper for
+ * instructions and arguments created.
+ * funcMap is a map from function to its wrapper.
+ * FunctionWrapper constructor creates wrapper for arguments too.
+ */
 void pdg::PDGUtils::constructFuncMap(Module &M)
 {
   for (Module::iterator FI = M.begin(); FI != M.end(); ++FI)
