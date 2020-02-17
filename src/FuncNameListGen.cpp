@@ -407,8 +407,4 @@ namespace {
     char llvmTest::ID = 0;
     static RegisterPass<llvmTest> llvmTest("llvm-test", "LLVM TEST", false, true);
 } // namespace
-
-int main(int argc, char** argv) {
-    errs() << "Hello world!" << "\n";
-}
 #endif
