@@ -1,7 +1,9 @@
 # Mac folder attributes
 *.DS_Store
 
-# Build folder
+# Build files
 build/
-
 *.ll
+
+# VSCode
+.vscode
