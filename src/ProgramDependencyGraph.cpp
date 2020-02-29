@@ -489,7 +489,7 @@ void pdg::ProgramDependencyGraph::buildFormalTreeForArg(Argument &arg, TreeType 
 
     if (argDIType == nullptr)
     {
-      errs() << "[WARNING]: Arg null " << Func->getName() << " - " << arg.getArgNo() << "\n";
+      // errs() << "[WARNING]: Arg null " << Func->getName() << " - " << arg.getArgNo() << "\n";
       return;
       // throw new ArgHasNoDITypeException("Argument Debug Type is nullptr");
     }
@@ -518,7 +518,7 @@ void pdg::ProgramDependencyGraph::buildFormalTreeForArg(Argument &arg, TreeType 
       else
         buildTypeTree(arg, treeTyW, treeTy);
     }
-    errs() << "Finish building formal tree for " << Func->getName() << " " << argW->getTree(TreeType::FORMAL_IN_TREE).size() << " " << argDIType->getName() << "\n";
+    // errs() << "Finish building formal tree for " << Func->getName() << " " << argW->getTree(TreeType::FORMAL_IN_TREE).size() << " " << argDIType->getName() << "\n";
   }
   catch (std::exception &e)
   {
