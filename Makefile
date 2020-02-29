@@ -37,6 +37,11 @@ bclean: eclean
 #	Rules for example project
 # #########################################################################
 
+# Run the example project
+.PHONY: run
+run: test_encrypt.ll
+	lli $(EDIR)/test_encrypt.ll
+
 # Link parts to create a combined ll
 test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
 	llvm-link $(EDIR)/test_encrypt_*.ll -o $(EDIR)/$@
