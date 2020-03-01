@@ -543,7 +543,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     retTypeName = "projection " + retTypeName + "_" + funcName;
   }
   
-  idl_file << "\t\tpublic " << retTypeName << " " << F.getName().str() << "( ";
+  idl_file << "\t\t" << retTypeName << " " << F.getName().str() << "( ";
   // handle parameters
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList())
   {
@@ -649,25 +649,23 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
   std::string sharedFieldPrefix = curImportedTransFuncName + argName;
 
-  std::queue<tree<InstructionWrapper*>::iterator> treeNodeQ;
-  treeNodeQ.push(argW->tree_begin(treeTy));
-  std::queue<tree<InstructionWrapper*>::iterator> funcPtrQ;
+  // std::queue<tree<InstructionWrapper*>::iterator> treeNodeQ;
+  // treeNodeQ.push(argW->tree_begin(treeTy));
+  // std::queue<tree<InstructionWrapper*>::iterator> funcPtrQ;
 
-  while (!treeNodeQ.empty())
+  for (auto treeI = argW->tree_begin(treeTy); treeI != argW->tree_end(treeTy); ++treeI)
   {
-    auto treeI = treeNodeQ.front();
-    treeNodeQ.pop();
+    // auto treeI = treeNodeQ.front();
+    // treeNodeQ.pop();
     auto curDIType = (*treeI)->getDIType();
-
     if (curDIType == nullptr)
       continue;
-
     std::stringstream projection_str;
     bool accessed = false;
 
-    // only process sturct pointer and function pointer, these are the only types that we should generate projection for
-    if (!DIUtils::isStructPointerTy(curDIType) && !DIUtils::isFuncPointerTy(curDIType))
-      continue;
+    // // only process sturct pointer and function pointer, these are the only types that we should generate projection for
+    // if (!DIUtils::isStructPointerTy(curDIType) && !DIUtils::isFuncPointerTy(curDIType))
+    //   continue;
 
     // std::string ptrStarNum = "";
     // std::string structPtrName = DIUtils::getDITypeName(curDIType);
@@ -677,121 +675,129 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
     //   ptrStarNum.push_back('*');
     // }
 
-    curDIType = DIUtils::getLowestDIType(curDIType);
+    // curDIType = DIUtils::getLowestDIType(curDIType);
 
-    if (DIUtils::isFuncPointerTy(curDIType))
-    {
-      generateIDLforFuncPtrWithDI(curDIType, F.getParent(), argName);
-    }
+    // if (DIUtils::isFuncPointerTy(curDIType))
+    // {
+    //   generateIDLforFuncPtrWithDI(curDIType, F.getParent(), argName);
+    // }
 
-    if (!DIUtils::isStructTy(curDIType))
-      continue;
+    // if (!DIUtils::isStructTy(curDIType))
+    //   continue;
 
-    treeI++;
-    for (int i = 0; i < tree<InstructionWrapper *>::number_of_children(treeI); ++i)
-    {
-      auto childT = tree<InstructionWrapper *>::child(treeI, i);
-      auto childDIType = (*childT)->getDIType();
+    // treeI++;
+    // for (int i = 0; i < tree<InstructionWrapper *>::number_of_children(treeI); ++i)
+    // {
+    //   auto childT = tree<InstructionWrapper *>::child(treeI, i);
+    //   auto childDIType = (*childT)->getDIType();
 
-      if ((*childT)->getAccessType() == AccessType::NOACCESS)
-        continue;
+    //   if ((*childT)->getAccessType() == AccessType::NOACCESS)
+    //     continue;
 
-      std::string sharedFieldName = sharedFieldPrefix + DIUtils::getDIFieldName(childDIType);
+    //   std::string sharedFieldName = sharedFieldPrefix + DIUtils::getDIFieldName(childDIType);
 
-      if (!handleFuncPtr && !DIUtils::isFuncPointerTy(childDIType) && sharedFieldMap.find(sharedFieldName) == sharedFieldMap.end())
-        continue; 
+    //   if (!handleFuncPtr && !DIUtils::isFuncPointerTy(childDIType) && sharedFieldMap.find(sharedFieldName) == sharedFieldMap.end())
+    //     continue; 
 
-      auto accessStat = sharedFieldMap[sharedFieldName];
-      // only check access status under cross boundary case. If not cross, we do not check and simply perform
-      // normal field finding analysis.
-      if (crossBoundary && (accessStat[0] == 0 || accessStat[1] == 0) && !handleFuncPtr)
-        continue;
+    //   auto accessStat = sharedFieldMap[sharedFieldName];
+    //   // only check access status under cross boundary case. If not cross, we do not check and simply perform
+    //   // normal field finding analysis.
+    //   if (crossBoundary && (accessStat[0] == 0 || accessStat[1] == 0) && !handleFuncPtr)
+    //     continue;
 
-      accessed = true;
-      if (DIUtils::isFuncPointerTy(childDIType))
-      {
-        // generate rpc for the indirect function call
-        std::string funcName = DIUtils::getDIFieldName(childDIType);
-        // generate rpc for defined function in isolated driver. Also, if kernel hook a function to a function pointer, we need to caputre this write
-        if (staticFuncptrList.find(funcName) == staticFuncptrList.end())
-          continue;
-        projection_str << "\t\trpc " << DIUtils::getFuncSigName(DIUtils::getLowestDIType(childDIType), DIUtils::getDIFieldName(childDIType)) << ";\n";
-        // put all function pointer in a queue, and process them all together later
-        funcPtrQ.push(childT);
-      }
-      else if (DIUtils::isStructPointerTy(childDIType))
-      {
-        // for struct pointer, generate a projection
-        auto tmpName = DIUtils::getDITypeName(childDIType);
-        auto tmpFuncName = funcName;
-        // formatting functions
-        while (tmpName.back() == '*')
-        {
-          tmpName.pop_back();
-          tmpFuncName.push_back('*');
-        }
+    //   accessed = true;
+    //   if (DIUtils::isFuncPointerTy(childDIType))
+    //   {
+    //     // generate rpc for the indirect function call
+    //     std::string funcName = DIUtils::getDIFieldName(childDIType);
+    //     // generate rpc for defined function in isolated driver. Also, if kernel hook a function to a function pointer, we need to caputre this write
+    //     if (staticFuncptrList.find(funcName) == staticFuncptrList.end())
+    //       continue;
+    //     projection_str << "\t\trpc " << DIUtils::getFuncSigName(DIUtils::getLowestDIType(childDIType), DIUtils::getDIFieldName(childDIType)) << ";\n";
+    //     // put all function pointer in a queue, and process them all together later
+    //     funcPtrQ.push(childT);
+    //   }
+    //   else if (DIUtils::isStructPointerTy(childDIType))
+    //   {
+    //     // for struct pointer, generate a projection
+    //     auto tmpName = DIUtils::getDITypeName(childDIType);
+    //     auto tmpFuncName = funcName;
+    //     // formatting functions
+    //     while (tmpName.back() == '*')
+    //     {
+    //       tmpName.pop_back();
+    //       tmpFuncName.push_back('*');
+    //     }
 
-        std::string fieldTypeName = tmpName;
-        if (fieldTypeName.find("device_ops") == std::string::npos) // specific handling for function ops
-          fieldTypeName = tmpName + "_" + tmpFuncName;
+    //     std::string fieldTypeName = tmpName;
+    //     if (fieldTypeName.find("device_ops") == std::string::npos) // specific handling for function ops
+    //       fieldTypeName = tmpName + "_" + tmpFuncName;
 
-        projection_str << "\t\t"
-                       << "projection " << fieldTypeName << " "
-                       << " " << DIUtils::getDIFieldName(childDIType) << ";\n";
-        treeNodeQ.push(childT);
-      }
-      else if (DIUtils::isStructTy(childDIType))
-      {
-        continue;
-      }
-      else
-      {
-        std::string fieldName = DIUtils::getDIFieldName(childDIType);
-        if (!fieldName.empty())
-          projection_str << "\t\t" + DIUtils::getDITypeName(childDIType) << " " << getAccessAttributeName(childT) << " " << DIUtils::getDIFieldName(childDIType) << ";\n";
-      }
-    }
+    //     projection_str << "\t\t"
+    //                    << "projection " << fieldTypeName << " "
+    //                    << " " << DIUtils::getDIFieldName(childDIType) << ";\n";
+    //     treeNodeQ.push(childT);
+    //   }
+    //   else if (DIUtils::isStructTy(childDIType))
+    //   {
+    //     continue;
+    //   }
+    //   else
+    //   {
+    //     std::string fieldName = DIUtils::getDIFieldName(childDIType);
+    //     if (!fieldName.empty())
+    //       projection_str << "\t\t" + DIUtils::getDITypeName(childDIType) << " " << getAccessAttributeName(childT) << " " << DIUtils::getDIFieldName(childDIType) << ";\n";
+    //   }
+    // }
 
-    // if any child field is accessed, we need to print out the projection for the current struct.
-    if (DIUtils::isStructTy(curDIType))
-    {
-      std::stringstream temp;
-      std::string structName = DIUtils::getDIFieldName(curDIType);
+    // // if any child field is accessed, we need to print out the projection for the current struct.
+    // if (DIUtils::isStructTy(curDIType))
+    // {
+    //   std::stringstream temp;
+    //   std::string structName = DIUtils::getDIFieldName(curDIType);
 
-      // a very specific handling for generating IDL for function ops
-      if (structName.find("device_ops") == std::string::npos)
-      {
-        temp << "\tprojection "
-             << "< struct " << structName << " > " << structName << "_" << funcName << " "
-             << " {\n"
-             << projection_str.str() << " \t}\n\n";
-      } else {
-        if (!seenFuncOps)
-        {
-          temp << "\tprojection "
-               << "< struct " << structName << " > " << structName <<  " "
-               << " {\n"
-               << projection_str.str() << " \t}\n\n";
-          seenFuncOps = true;
-        }
-      }
+    //   // a very specific handling for generating IDL for function ops
+    //   if (structName.find("device_ops") == std::string::npos)
+    //   {
+    //     temp << "\tprojection "
+    //          << "< struct " << structName << " > " << structName << "_" << funcName << " "
+    //          << " {\n"
+    //          << projection_str.str() << " \t}\n\n";
+    //   } else {
+    //     if (!seenFuncOps)
+    //     {
+    //       temp << "\tprojection "
+    //            << "< struct " << structName << " > " << structName <<  " "
+    //            << " {\n"
+    //            << projection_str.str() << " \t}\n\n";
+    //       seenFuncOps = true;
+    //     }
+    //   }
 
-      projection_str = std::move(temp);
-    }
-    else
-      projection_str.str(""); 
+    //   projection_str = std::move(temp);
+    // }
+    // else
+    //   projection_str.str(""); 
 
     // process function pointers. Need to find all candidate called functions, and get all the access information from them.
-    while (!funcPtrQ.empty())
-    {
-      auto funcT = funcPtrQ.front();
-      funcPtrQ.pop();
-      // generateIDLforFuncPtr((*funcT)->getTreeNodeType(), DIUtils::getDIFieldName((*funcT)->getDIType()), F);
-      std::string funcPtrName = DIUtils::getDIFieldName((*funcT)->getDIType());
-      if (processedFuncPtrNames.find(funcPtrName) == processedFuncPtrNames.end())
-        generateIDLforFuncPtrWithDI((*funcT)->getDIType(), F.getParent(), funcPtrName);
-    }
+    // while (!funcPtrQ.empty())
+    // {
+    //   auto funcT = funcPtrQ.front();
+    //   funcPtrQ.pop();
+    //   // generateIDLforFuncPtr((*funcT)->getTreeNodeType(), DIUtils::getDIFieldName((*funcT)->getDIType()), F);
+    //   std::string funcPtrName = DIUtils::getDIFieldName((*funcT)->getDIType());
+    //   if (processedFuncPtrNames.find(funcPtrName) == processedFuncPtrNames.end())
+    //     generateIDLforFuncPtrWithDI((*funcT)->getDIType(), F.getParent(), funcPtrName);
+    // }
 
+    // errs () << argName <<"Tree access type:" << (int)(*treeI)->getAccessType() << "\n";
+    // std::stringstream temp;
+    // temp << "[";
+    // if ((*treeI)->getAccessType() == AccessType::READ) temp << argName << ":in";
+    // if ((*treeI)->getAccessType() == AccessType::WRITE) temp << argName<< ":out";
+    // temp << "]";
+    // if ((*treeI)->getAccessType() != AccessType::NOACCESS)
+    //   projection_str = std::move(temp);
     idl_file << projection_str.str();
     accessed = false;
   }
