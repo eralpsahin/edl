@@ -18,6 +18,8 @@ public:
   AccessInfoTracker() : llvm::ModulePass(ID) {}
   static char ID;
   bool runOnModule(llvm::Module &M);
+  void createTrusted(llvm::Module &M);
+  void createUntrusted(llvm::Module &M);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForCallInsts(llvm::Function &Func);
   void printRetValueAccessInfo(llvm::Function &Func);
