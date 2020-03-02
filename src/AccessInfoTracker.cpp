@@ -1,5 +1,6 @@
 #include "AccessInfoTracker.hpp"
 #include <iostream>
+#include <sstream>
 
 using namespace llvm;
 
@@ -80,6 +81,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
     }
     // errs() << "Cross boundary? " << crossBoundary << "\n";
     generateIDLforFunc(*func);
+    idl_file <<";\n\n";
   }
 
   idl_file << "\t};\n";
@@ -151,12 +153,15 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
   for (auto funcName : importedFuncList)
   {
+    
+
     sharedFieldMap.clear();
     crossBoundary = false;
     curImportedTransFuncName = funcName;
     auto func = M.getFunction(StringRef(funcName));
     if (func->isDeclaration())
       continue;
+    errs() << func->getName() << "\n";
     auto transClosure = getTransitiveClosure(*func);
     for (std::string staticFuncName : staticFuncList)
     {
@@ -164,18 +169,31 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
       if (staticFunc && !staticFunc->isDeclaration())
         transClosure.push_back(staticFunc);
     }
+    // Start populating stringstream for allow() syntax of OCALL
+    std::ostringstream allow;
+    allow << "allow(";
     for (auto iter = transClosure.rbegin(); iter != transClosure.rend(); iter++)
     {
       auto transFunc = *iter;
       if (transFunc->isDeclaration())
-        continue; 
-      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end())
+        continue;
+
+      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end()) {
+        
+        if (allow.str().length() > 6)  allow << ", ";
+        allow << transFunc->getName().str();
         crossBoundary = true;
+      }
       getIntraFuncReadWriteInfoForFunc(*transFunc);
       getInterFuncReadWriteInfo(*transFunc);
     }
     // errs() << "Cross boundary? " << crossBoundary << "\n";
+    allow << ");";
     generateIDLforFunc(*func);
+    // Write the allow syntax if there is an ECALL in this OCALL
+    if (allow.str().length() > 8)
+      idl_file << allow.str() <<"\n\n";
+    else idl_file << ";\n\n";
   }
 
   idl_file << "\t};\n\n};";
@@ -688,7 +706,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty())
       idl_file << ", ";
   }
-  idl_file << " );\n\n";
+  idl_file << " )";//\n\n";
 }
 
 void pdg::AccessInfoTracker::generateIDLforFunc(Function &F)
