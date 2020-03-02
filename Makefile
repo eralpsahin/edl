@@ -1,5 +1,10 @@
 ODIR := ./build
-output_folder := $(shell mkdir -p $(ODIR))
+UNTRUSTED := untrusted
+TRUSTED := trusted
+UNTRUSTED_DIR := $(ODIR)/$(UNTRUSTED)
+TRUSTED_DIR := $(ODIR)/$(TRUSTED)
+build_folder := $(shell mkdir -p $(ODIR))
+output_folder := $(shell mkdir -p $(UNTRUSTED_DIR) $(TRUSTED_DIR))
 EDIR := ./example
 CC := clang-9
 CC_FLAGS := -emit-llvm -S -g
@@ -18,20 +23,20 @@ clean: eclean
 
 # Do EDL generation pass
 edl: gen-u gen-t $(EDIR)/test_encrypt.ll
-	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "u_" -t "t_" < ../$(EDIR)/test_encrypt.ll
+	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "untrusted/" -t "trusted/" < ../$(EDIR)/test_encrypt.ll
 
 # Generate function list from untrusted
 gen-u: libplugin.so $(EDIR)/test_encrypt_script.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix "u_" < ../$(EDIR)/test_encrypt_script.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(UNTRUSTED)/ < ../$(EDIR)/test_encrypt_script.ll
 
 
 # Generate function list from trusted
 gen-t: libplugin.so $(EDIR)/test_encrypt_util.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix "t_" < ../$(EDIR)/test_encrypt_util.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/test_encrypt_util.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
-	@rm -rf $(ODIR)/*_func*.txt $(ODIR)/enclave.edl
+	@rm -rf $(ODIR)/enclave.edl $(TRUSTED_DIR) $(UNTRUSTED_DIR)
 
 # *************************************************************************
 
