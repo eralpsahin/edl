@@ -18,8 +18,8 @@ public:
   AccessInfoTracker() : llvm::ModulePass(ID) {}
   static char ID;
   bool runOnModule(llvm::Module &M);
-  void createTrusted(llvm::Module &M);
-  void createUntrusted(llvm::Module &M);
+  void createTrusted(std::string prefix, llvm::Module &M);
+  void createUntrusted(std::string prefix, llvm::Module &M);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForCallInsts(llvm::Function &Func);
   void printRetValueAccessInfo(llvm::Function &Func);
@@ -53,7 +53,7 @@ private:
   ProgramDependencyGraph *PDG;
   llvm::CallGraph *CG;
   std::ofstream idl_file;
-  std::set<std::string> deviceObjStore;
+  std::set<std::string> deviceObjStore; // Unused
   std::set<std::string> kernelObjStore; 
   std::set<std::string> importedFuncList;
   std::set<std::string> kernelFuncList;

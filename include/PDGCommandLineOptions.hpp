@@ -6,5 +6,7 @@ namespace pdg {
 // command line options
 extern int EXPAND_LEVEL;
 extern int USEDEBUGINFO;
+extern std::string TPREFIX;
+extern std::string UPREFIX;
 }
 #endif

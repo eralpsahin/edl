@@ -13,8 +13,17 @@ void pdg::ProgramDependencyGraph::getAnalysisUsage(AnalysisUsage &AU) const
 
 int pdg::EXPAND_LEVEL;
 int pdg::USEDEBUGINFO;
+std::string pdg::TPREFIX;
+std::string pdg::UPREFIX;
 llvm::cl::opt<int> expandLevel("l", llvm::cl::desc("Parameter tree expand level"), llvm::cl::value_desc("level"));
 llvm::cl::opt<int> useDebugInfo("d", llvm::cl::desc("use debug information"), llvm::cl::value_desc("debugInfo"));
+static llvm::cl::opt<std::string> uPrefix(
+    "u", llvm::cl::desc("Specify prefix for untrusted side"),
+    llvm::cl::value_desc("uprefix"));
+
+static llvm::cl::opt<std::string> tPrefix(
+    "t", llvm::cl::desc("Specify prefix for trusted side"),
+    llvm::cl::value_desc("tprefix"));
 
 bool pdg::ProgramDependencyGraph::runOnModule(Module &M)
 {
@@ -24,15 +33,16 @@ bool pdg::ProgramDependencyGraph::runOnModule(Module &M)
     useDebugInfo = 0;
   EXPAND_LEVEL = expandLevel;
   USEDEBUGINFO = useDebugInfo;
-
+  TPREFIX = tPrefix;
+  UPREFIX = uPrefix;
   std::set<std::string> importedFuncList;
   std::set<std::string> blackFuncList;
   std::set<std::string> definedFuncList;
 
-  std::ifstream importedFuncs("imported_func.txt");
-  std::ifstream blackFuncs("blacklist.txt");
-  std::ifstream definedFuncs("defined_func.txt");
-  std::ifstream staticFuncs("static_func.txt");
+  std::ifstream importedFuncs(TPREFIX+"imported_func.txt");
+  std::ifstream blackFuncs(TPREFIX+"blacklist.txt");
+  std::ifstream definedFuncs(TPREFIX+"defined_func.txt");
+  std::ifstream staticFuncs(TPREFIX+"static_func.txt");
 
   for (std::string line; std::getline(blackFuncs, line);)
     blackFuncList.insert(line);

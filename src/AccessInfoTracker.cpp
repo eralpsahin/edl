@@ -5,14 +5,13 @@ using namespace llvm;
 
 char pdg::AccessInfoTracker::ID = 0;
 
-
-void pdg::AccessInfoTracker::createTrusted(Module &M) {
-  std::ifstream importedFuncs("imported_func.txt");
-  std::ifstream definedFuncs("defined_func.txt");
-  std::ifstream blackFuncs("blacklist.txt");
-  std::ifstream static_funcptr("static_funcptr.txt");
-  std::ifstream static_func("static_func.txt");
-  std::ifstream lock_funcs("lock_func.txt");
+void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
+  std::ifstream importedFuncs(prefix+"imported_func.txt");
+  std::ifstream definedFuncs(prefix+"defined_func.txt");
+  std::ifstream blackFuncs(prefix+"blacklist.txt");
+  std::ifstream static_funcptr(prefix+"static_funcptr.txt");
+  std::ifstream static_func(prefix+"static_func.txt");
+  std::ifstream lock_funcs(prefix+"lock_func.txt");
   // process global shared lock
   for (std::string line; std::getline(lock_funcs, line);)
     lockFuncList.insert(line);
@@ -38,7 +37,9 @@ void pdg::AccessInfoTracker::createTrusted(Module &M) {
   kernelFuncList = importedFuncList;
 
   //?  Execute the PDG analysis here
-  auto &pdgUtils = PDGUtils::getInstance(); PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
+  auto &pdgUtils = PDGUtils::getInstance();
+  PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
+
   if (!USEDEBUGINFO)
   {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
@@ -92,22 +93,22 @@ void pdg::AccessInfoTracker::createTrusted(Module &M) {
   static_funcptr.close();
   static_func.close();
   lock_funcs.close();
-  errs() << "\n\n";
-  for (auto &F : M)
-  {
-    if (F.isDeclaration() || ((importedFuncList.find(F.getName()) == importedFuncList.end()) && (staticFuncList.find(F.getName().str()) == staticFuncList.end())) || F.isIntrinsic())
-      continue;
-    printFuncArgAccessInfo(F);
-  }
+  // errs() << "\n\n";
+  // for (auto &F : M)
+  // {
+  //   if (F.isDeclaration() || ((importedFuncList.find(F.getName()) == importedFuncList.end()) && (staticFuncList.find(F.getName().str()) == staticFuncList.end())) || F.isIntrinsic())
+  //     continue;
+  //   printFuncArgAccessInfo(F);
+  // }
 }
 
-void pdg::AccessInfoTracker::createUntrusted(Module &M) {
-  std::ifstream importedFuncs("imported_func.txt");
-  std::ifstream definedFuncs("defined_func.txt");
-  std::ifstream blackFuncs("blacklist.txt");
-  std::ifstream static_funcptr("static_funcptr.txt");
-  std::ifstream static_func("static_func.txt");
-  std::ifstream lock_funcs("lock_func.txt");
+void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
+  std::ifstream importedFuncs(prefix+ "imported_func.txt");
+  std::ifstream definedFuncs(prefix+"defined_func.txt");
+  std::ifstream blackFuncs(prefix+"blacklist.txt");
+  std::ifstream static_funcptr(prefix+"static_funcptr.txt");
+  std::ifstream static_func(prefix+"static_func.txt");
+  std::ifstream lock_funcs(prefix+"lock_func.txt");
   // process global shared lock
   for (std::string line; std::getline(lock_funcs, line);)
     lockFuncList.insert(line);
@@ -133,7 +134,8 @@ void pdg::AccessInfoTracker::createUntrusted(Module &M) {
   kernelFuncList = importedFuncList;
 
   //?  Execute the PDG analysis here
-  auto &pdgUtils = PDGUtils::getInstance(); PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
+  auto &pdgUtils = PDGUtils::getInstance();
+  PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
   if (!USEDEBUGINFO)
   {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
@@ -187,25 +189,33 @@ void pdg::AccessInfoTracker::createUntrusted(Module &M) {
   static_funcptr.close();
   static_func.close();
   lock_funcs.close();
-  errs() << "\n\n";
-  for (auto &F : M)
-  {
-    if (F.isDeclaration() || ((importedFuncList.find(F.getName()) == importedFuncList.end()) && (staticFuncList.find(F.getName().str()) == staticFuncList.end())) || F.isIntrinsic())
-      continue;
-    printFuncArgAccessInfo(F);
-  }
+  // errs() << "\n\n";
+  // for (auto &F : M)
+  // {
+  //   if (F.isDeclaration() || ((importedFuncList.find(F.getName()) == importedFuncList.end()) && (staticFuncList.find(F.getName().str()) == staticFuncList.end())) || F.isIntrinsic())
+  //     continue;
+  //   printFuncArgAccessInfo(F);
+  // }
 }
 
 bool pdg::AccessInfoTracker::runOnModule(Module &M)
 {
-  createTrusted(M);
+  createTrusted(UPREFIX, M);
   /**
    * TODO: Remember ECALLs in the trusted side
    * TODO: Update -llvm-test to get an argument to prefix the output file names
    * TODO: Read correct files for each sides at this step we will have trusted and untrusted
    * TODO: While writing the untrusted check if the function calls 
    */
-  createUntrusted(M);
+  lockFuncList.clear();
+  blackFuncList.clear();
+  staticFuncList.clear();
+  importedFuncList.clear();
+  definedFuncList.clear();
+  kernelFuncList.clear();
+  driverFuncPtrCallTargetMap.clear();
+
+  createUntrusted(TPREFIX, M);
   return false;
 }
 

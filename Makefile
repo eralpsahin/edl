@@ -17,14 +17,17 @@ clean: eclean
 # #########################################################################
 
 # Do EDL generation pass
-edl: gen-func
-	cd $(ODIR) && opt -load libpdg.so -accinfo-track -d 1 < ../$(EDIR)/test_encrypt.ll >/dev/null
+edl: gen-u gen-t $(EDIR)/test_encrypt.ll
+	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "u_" -t "t_" < ../$(EDIR)/test_encrypt.ll
 
-# Generate function list from a single part (trusted or untrusted)
-# This is an LLVM pass
-gen-func: libplugin.so test_encrypt.ll
-	@cd $(ODIR) && opt -load  libpdg.so -llvm-test < ../$(EDIR)/test_encrypt_script.ll >/dev/null
-	@echo Done.
+# Generate function list from untrusted
+gen-u: libplugin.so $(EDIR)/test_encrypt_script.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix "u_" < ../$(EDIR)/test_encrypt_script.ll
+
+
+# Generate function list from trusted
+gen-t: libplugin.so $(EDIR)/test_encrypt_util.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix "t_" < ../$(EDIR)/test_encrypt_util.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
@@ -42,9 +45,13 @@ bclean: eclean
 run: test_encrypt.ll
 	lli $(EDIR)/test_encrypt.ll
 
+.PHONY: compile
+compile: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
+	llvm-link $(EDIR)/test_encrypt_*.ll -o $(EDIR)/test_encrypt.ll
+
 # Link parts to create a combined ll
-test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
-	llvm-link $(EDIR)/test_encrypt_*.ll -o $(EDIR)/$@
+$(EDIR)/test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
+	llvm-link $(EDIR)/test_encrypt_*.ll -o $@
 
 # Compile trusted and untrusted parts
 $(EDIR)/test_encrypt_script.ll: $(EDIR)/test_encrypt_script.c

@@ -11,6 +11,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/Function.h"
@@ -24,6 +25,8 @@
 #include <map>
 #include <fstream>
 #include <sstream>
+
+static llvm::cl::opt<std::string> prefix("prefix", llvm::cl::desc("Specify prefix for output"), llvm::cl::value_desc("prefix"));
 
 namespace {
     using namespace llvm;
@@ -171,12 +174,11 @@ namespace {
         
 
 
-            std::ofstream imported_func("imported_func.txt");
-            std::ofstream defined_func("defined_func.txt");
-            std::ofstream static_funcptr("static_funcptr.txt");
-            std::ofstream static_func("static_func.txt");
-            std::ofstream lock_func("lock_func.txt");
-
+            std::ofstream imported_func(prefix + "imported_func.txt");
+            std::ofstream defined_func(prefix + "defined_func.txt");
+            std::ofstream static_funcptr(prefix + "static_funcptr.txt");
+            std::ofstream static_func(prefix + "static_func.txt");
+            std::ofstream lock_func(prefix + "lock_func.txt");
 
             lock_func << "spin_lock\n";
             lock_func << "spin_lock_irq\n";
