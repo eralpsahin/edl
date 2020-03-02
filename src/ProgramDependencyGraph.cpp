@@ -39,10 +39,10 @@ bool pdg::ProgramDependencyGraph::runOnModule(Module &M)
   std::set<std::string> blackFuncList;
   std::set<std::string> definedFuncList;
 
-  std::ifstream importedFuncs(TPREFIX+"imported_func.txt");
-  std::ifstream blackFuncs(TPREFIX+"blacklist.txt");
-  std::ifstream definedFuncs(TPREFIX+"defined_func.txt");
-  std::ifstream staticFuncs(TPREFIX+"static_func.txt");
+  std::ifstream importedFuncs(UPREFIX+"imported_func.txt");
+  std::ifstream blackFuncs(UPREFIX+"blacklist.txt");
+  std::ifstream definedFuncs(UPREFIX+"defined_func.txt");
+  std::ifstream staticFuncs(UPREFIX+"static_func.txt");
 
   for (std::string line; std::getline(blackFuncs, line);)
     blackFuncList.insert(line);
