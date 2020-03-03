@@ -47,7 +47,7 @@ bclean: eclean
 
 # Run the example project
 .PHONY: run
-run: test_encrypt.ll
+run: $(EDIR)/test_encrypt.ll
 	lli $(EDIR)/test_encrypt.ll
 
 .PHONY: compile
@@ -59,11 +59,11 @@ $(EDIR)/test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_scrip
 	llvm-link $(EDIR)/test_encrypt_*.ll -o $@
 
 # Compile trusted and untrusted parts
-$(EDIR)/test_encrypt_script.ll: $(EDIR)/test_encrypt_script.c
-	$(CC) $(CC_FLAGS) $^ -o $@
+$(EDIR)/test_encrypt_script.ll: $(EDIR)/test_encrypt_script.c $(EDIR)/test_encrypt.h
+	$(CC) $(CC_FLAGS) $< -o $@
 
-$(EDIR)/test_encrypt_util.ll: $(EDIR)/test_encrypt_util.c
-	$(CC) $(CC_FLAGS) $^ -o $@
+$(EDIR)/test_encrypt_util.ll: $(EDIR)/test_encrypt_util.c $(EDIR)/test_encrypt.h
+	$(CC) $(CC_FLAGS) $< -o $@
 
 # Example clean cleans the ll files from the example.
 eclean:
