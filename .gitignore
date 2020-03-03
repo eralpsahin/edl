@@ -7,3 +7,8 @@ build/
 
 # VSCode
 .vscode
+
+# Example folder
+example/*.ll
+example/*.c
+example/*.h
