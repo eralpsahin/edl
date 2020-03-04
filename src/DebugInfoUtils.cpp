@@ -213,63 +213,63 @@ std::string pdg::DIUtils::getFuncSigName(DIType *ty, std::string funcPtrName, st
   return "void";
 }
 
-std::string pdg::DIUtils::getFuncDITypeName(DIType *ty, std::string funcName)
-{
-  if (ty == nullptr)
-    return "void";
+// std::string pdg::DIUtils::getFuncDITypeName(DIType *ty, std::string funcName)
+// {
+//   if (ty == nullptr)
+//     return "void";
 
-  if (!ty->getTag() || ty == NULL) // process function type, which has not tag
-    return getFuncSigName(ty);
+//   if (!ty->getTag() || ty == NULL) // process function type, which has not tag
+//     return getFuncSigName(ty);
 
-  try
-  {
-    switch (ty->getTag())
-    {
-    case dwarf::DW_TAG_typedef:
-      return getFuncDITypeName(getBaseDIType(ty), funcName);
-      // return ty->getName().str();
-    case dwarf::DW_TAG_member:
-      return getFuncDITypeName(getBaseDIType(ty), funcName);
-    case dwarf::DW_TAG_array_type:
-    {
-      if (DIType *arrTy = dyn_cast<DICompositeType>(ty)->getBaseType()) {
-        return arrTy->getName().str() + "[" + std::to_string(arrTy->getSizeInBits()) + "]";
-      }
-    }
-    case dwarf::DW_TAG_pointer_type:
-    {
-      std::string s = getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType(), funcName);
-      return (s + "_" + funcName + "*");
-    }
-    case dwarf::DW_TAG_subroutine_type:
-      return getFuncSigName(ty);
-    case dwarf::DW_TAG_union_type:
-      return "union";
-    case dwarf::DW_TAG_structure_type:
-    {
-      std::string st_name = ty->getName().str();
-      if (!st_name.empty())
-        return  st_name;
-        // return "struct " + st_name;
-      return "struct";
-    }
-    case dwarf::DW_TAG_const_type:
-      return getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType(), funcName);
-      // return "const " + getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType().resolve(), funcName);
-    default:
-    {
-      if (!ty->getName().str().empty())
-        return ty->getName().str();
-      return "unknow";
-    }
-    }
-  }
-  catch (std::exception &e)
-  {
-    errs() << e.what();
-    exit(0);
-  }
-}
+//   try
+//   {
+//     switch (ty->getTag())
+//     {
+//     case dwarf::DW_TAG_typedef:
+//       return getFuncDITypeName(getBaseDIType(ty), funcName);
+//       // return ty->getName().str();
+//     case dwarf::DW_TAG_member:
+//       return getFuncDITypeName(getBaseDIType(ty), funcName);
+//     case dwarf::DW_TAG_array_type:
+//     {
+//       if (DIType *arrTy = dyn_cast<DICompositeType>(ty)->getBaseType()) {
+//         return arrTy->getName().str() + "[" + std::to_string(arrTy->getSizeInBits()) + "]";
+//       }
+//     }
+//     case dwarf::DW_TAG_pointer_type:
+//     {
+//       std::string s = getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType(), funcName);
+//       return (s + "_" + funcName + "*");
+//     }
+//     case dwarf::DW_TAG_subroutine_type:
+//       return getFuncSigName(ty);
+//     case dwarf::DW_TAG_union_type:
+//       return "union";
+//     case dwarf::DW_TAG_structure_type:
+//     {
+//       std::string st_name = ty->getName().str();
+//       if (!st_name.empty())
+//         return  st_name;
+//         // return "struct " + st_name;
+//       return "struct";
+//     }
+//     case dwarf::DW_TAG_const_type:
+//       return getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType(), funcName);
+//       // return "const " + getFuncDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType().resolve(), funcName);
+//     default:
+//     {
+//       if (!ty->getName().str().empty())
+//         return ty->getName().str();
+//       return "unknow";
+//     }
+//     }
+//   }
+//   catch (std::exception &e)
+//   {
+//     errs() << e.what();
+//     exit(0);
+//   }
+// }
 
 std::string pdg::DIUtils::getDITypeName(DIType *ty)
 {
