@@ -705,7 +705,11 @@ void pdg::ProgramDependencyGraph::buildTypeTreeWithDI(Argument &arg, Instruction
       insert_loc = getInstInsertLoc(argW, curTyNode, treeTy);
       // process pointer type node.
 
-      if (DIUtils::isPointerType(nodeDIType))
+      if (DIUtils::isPointerType(nodeDIType) ||
+          (nodeDIType->getTag() == dwarf::DW_TAG_typedef &&
+           DIUtils::isPointerType(
+               dyn_cast<DIDerivedType>(nodeDIType)->getBaseType())))
+
       {
         // extract the pointed value, push it to inst queue for further process.
         InstructionWrapper *pointedTypeW = buildPointerTypeNodeWithDI(argW, curTyNode, insert_loc, nodeDIType);

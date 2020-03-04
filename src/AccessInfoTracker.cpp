@@ -161,7 +161,6 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
     auto func = M.getFunction(StringRef(funcName));
     if (func->isDeclaration())
       continue;
-    errs() << func->getName() << "\n";
     auto transClosure = getTransitiveClosure(*func);
     for (std::string staticFuncName : staticFuncList)
     {
@@ -349,11 +348,15 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
     return;
   }
 
-  if ((*treeI)->getDIType()->getTag() != dwarf::DW_TAG_pointer_type)
-  {
-    errs() << func->getName() << " - " << argW->getArg()->getArgNo() << " Find non-pointer type parameter, do not track...\n";
-    return;
-  }
+  if ((*treeI)->getDIType()->getTag() != dwarf::DW_TAG_pointer_type &&
+      !((*treeI)->getDIType()->getTag() == dwarf::DW_TAG_typedef &&
+        DIUtils::isPointerType(
+            dyn_cast<DIDerivedType>((*treeI)->getDIType())->getBaseType())))
+    {
+      errs() << func->getName() << " - " << argW->getArg()->getArgNo()
+             << " Find non-pointer type parameter, do not track...\n";
+      return;
+    }
 
   AccessType accessType = AccessType::NOACCESS;
   auto &pdgUtils = PDGUtils::getInstance();
