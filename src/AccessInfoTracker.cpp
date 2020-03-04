@@ -307,7 +307,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(const InstructionWrappe
         // if a value is used in a store instruction and is the store destination
         if (dyn_cast<Instruction>(st->getPointerOperand()) == instW->getInstruction())
         {
-          if (instW->getGraphNodeType() == GraphNodeType::ARG_ALLOC) // ignore the store inst that store arg to stack mem
+          if (isa<Argument>(st->getValueOperand())) // ignore the store inst that store arg to stack mem
             break;
           accessType = AccessType::WRITE;
           break;
