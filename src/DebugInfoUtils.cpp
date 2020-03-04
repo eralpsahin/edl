@@ -284,7 +284,8 @@ std::string pdg::DIUtils::getDITypeName(DIType *ty)
     switch (ty->getTag())
     {
     case dwarf::DW_TAG_typedef:
-      return getDITypeName(getBaseDIType(ty));
+      return ty->getName();
+      //return getDITypeName(getBaseDIType(ty));
     case dwarf::DW_TAG_member:
       return getDITypeName(getBaseDIType(ty));
     case dwarf::DW_TAG_array_type:
