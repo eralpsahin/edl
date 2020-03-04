@@ -380,7 +380,7 @@ Instruction *pdg::ProgramDependencyGraph::getArgAllocaInst(Argument &arg)
   {
     if (auto DLV = dyn_cast<DILocalVariable>(dbgInst->getVariable()))
     {
-      if (DLV->isParameter() && DLV->getScope()->getSubprogram() == arg.getParent()->getSubprogram())
+      if (DLV->isParameter() && DLV->getScope()->getSubprogram() == arg.getParent()->getSubprogram() && DLV->getArg()-1 == arg.getArgNo())
       {
         Instruction *allocaInst = dyn_cast<Instruction>(dbgInst->getVariableLocation());
         return allocaInst;
@@ -986,10 +986,10 @@ void pdg::ProgramDependencyGraph::connectFunctionAndFormalTrees(Function *callee
         {
           if (depInstAlias->getInstruction() == nullptr)
             continue;
-
+          
           // PDG->addDependency(*ParentI, depInstAlias, DependencyType::VAL_DEP); // add Val_Dep dependency between parent node and its dep insts
           auto readInsts = getReadInstsOnInst(depInstAlias->getInstruction());
-
+      
           for (auto readInstW : readInsts)
           {
             if (isa<LoadInst>(readInstW->getInstruction()))
