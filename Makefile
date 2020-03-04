@@ -52,11 +52,11 @@ run: $(EDIR)/test_encrypt.ll
 
 .PHONY: compile
 compile: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
-	llvm-link $(EDIR)/test_encrypt_*.ll -o $(EDIR)/test_encrypt.ll
+	llvm-link $(EDIR)/test_encrypt_*.ll -S -o $(EDIR)/test_encrypt.ll
 
 # Link parts to create a combined ll
 $(EDIR)/test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
-	llvm-link $(EDIR)/test_encrypt_*.ll -o $@
+	llvm-link $(EDIR)/test_encrypt_*.ll -S -o $@
 
 # Compile trusted and untrusted parts
 $(EDIR)/test_encrypt_script.ll: $(EDIR)/test_encrypt_script.c $(EDIR)/test_encrypt.h
