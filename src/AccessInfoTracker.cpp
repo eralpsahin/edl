@@ -347,21 +347,28 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
     errs() << "Empty debugging info for " << func->getName() << " - " << argW->getArg()->getArgNo() << "\n";
     return;
   }
-
-  if ((*treeI)->getDIType()->getTag() != dwarf::DW_TAG_pointer_type &&
-      !((*treeI)->getDIType()->getTag() == dwarf::DW_TAG_typedef &&
-        DIUtils::isPointerType(
-            dyn_cast<DIDerivedType>((*treeI)->getDIType())->getBaseType())))
+    if ((*treeI)->getDIType()->getTag() != dwarf::DW_TAG_pointer_type && 
+      !DIUtils::isTypeDefPtrTy(*argW->getArg()))
     {
-      errs() << func->getName() << " - " << argW->getArg()->getArgNo()
-             << " Find non-pointer type parameter, do not track...\n";
+      // errs() << func->getName() << " - " << argW->getArg()->getArgNo()
+      //        << " Find non-pointer type parameter, do not track...\n";
       return;
     }
 
+    if (DIUtils::isStructPointerTy((*treeI)->getDIType())) return;
   AccessType accessType = AccessType::NOACCESS;
   auto &pdgUtils = PDGUtils::getInstance();
+  int count = -1;
+  if (DIUtils::isTypeDefPtrTy(*argW->getArg())) {
+    argW->getAttribute().setIsPtr();
+    // it can also be readonly
+    if (DIUtils::isTypeDefConstPtrTy(*argW->getArg())) {
+      argW->getAttribute().setReadOnly();
+    }
+  }
   for (auto treeI = argW->tree_begin(TreeType::FORMAL_IN_TREE); treeI != argW->tree_end(TreeType::FORMAL_IN_TREE); ++treeI)
   {
+    count += 1;
     // hanlde static defined functions, assume all functions poineter that are linked with defined function in device driver module should be used by kernel.
     // if (DIUtils::isFuncPointerTy((*treeI)->getDIType()))
     // {
@@ -378,23 +385,43 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
     //   }
     // }
 
-    auto valDepPairList = PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
-    for (auto valDepPair : valDepPairList)
-    {
-      auto dataW = valDepPair.first->getData();
-      AccessType accType = getAccessTypeForInstW(dataW);
-      if (static_cast<int>(accType) > static_cast<int>((*treeI)->getAccessType()))
-        (*treeI)->setAccessType(accType);
-      if (accType != AccessType::NOACCESS)
-      {
-        // update shared field map
-        auto &dbgInstList = pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
-        std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
-        bool isKernel = (definedFuncList.find(func->getName()) == definedFuncList.end());
-        std::string fieldName = argName + DIUtils::getDIFieldName((*treeI)->getDIType());
-        updateSharedFieldMap(fieldName, isKernel);
+      auto valDepPairList =
+          PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
+      for (auto valDepPair : valDepPairList) {
+        auto dataW = valDepPair.first->getData();
+        AccessType accType = getAccessTypeForInstW(dataW);
+        if (static_cast<int>(accType) >
+            static_cast<int>((*treeI)->getAccessType())) {
+          auto &dbgInstList =
+              pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
+          std::string argName =
+              DIUtils::getArgName(*(argW->getArg()), dbgInstList);
+
+          if ((unsigned)accType == 2) {
+            argW->getAttribute().setOut();
+          }
+          if (count == 1 && (unsigned)accType == 1) {
+            argW->getAttribute().setIn();
+          }
+          errs() << argName << " n" << count << "-"
+                 << getAccessAttributeName(treeI) << " => "
+                 << getAccessAttributeName((unsigned)accType) << "\n";
+
+          (*treeI)->setAccessType(accType);
+        }
+        if (accType != AccessType::NOACCESS) {
+          // update shared field map
+          auto &dbgInstList =
+              pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
+          std::string argName =
+              DIUtils::getArgName(*(argW->getArg()), dbgInstList);
+          bool isKernel =
+              (definedFuncList.find(func->getName()) == definedFuncList.end());
+          std::string fieldName =
+              argName + DIUtils::getDIFieldName((*treeI)->getDIType());
+          updateSharedFieldMap(fieldName, isKernel);
+        }
       }
-    }
   }
 }
 
@@ -694,8 +721,12 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     // else if (PDG->isFuncPointer(argType)) {
     //   idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
     // }
-    else
-      idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
+    else {
+      if (argType->getTypeID() == 15)
+        idl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+      else
+        idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
+    }
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty())
       idl_file << ", ";
@@ -706,7 +737,6 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
 void pdg::AccessInfoTracker::generateIDLforFunc(Function &F)
 {
   // if a function is defined on the same side, no need to generate IDL rpc for this function.
-  errs() << "Start generating IDL for " << F.getName() << "\n";
   auto &pdgUtils = PDGUtils::getInstance();
   FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
   for (auto argW : funcW->getArgWList())
@@ -764,13 +794,19 @@ void pdg::AccessInfoTracker::generateIDLforFuncPtrWithDI(DIType *funcDIType, Mod
 void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType treeTy, std::string funcName, bool handleFuncPtr)
 {
   auto &pdgUtils = PDGUtils::getInstance();
-  if (argW->getTree(TreeType::FORMAL_IN_TREE).size() == 0)
+  if (argW->getTree(TreeType::FORMAL_IN_TREE).size() == 0 || argW->getArg()->getArgNo() == 100) // No need to handle return args
     return;
 
   Function &F = *argW->getArg()->getParent();
-
+  auto check = argW->tree_begin(treeTy);
+  if (DIUtils::isStructPointerTy((*check)->getDIType())) {
+    // TODO: Handle struct pointers
+    return;
+  }
+  
   if (funcName.empty())
     funcName = F.getName().str();
+  
 
   auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
@@ -790,9 +826,11 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
     std::stringstream projection_str;
     bool accessed = false;
 
-    // // only process sturct pointer and function pointer, these are the only types that we should generate projection for
-    // if (!DIUtils::isStructPointerTy(curDIType) && !DIUtils::isFuncPointerTy(curDIType))
-    //   continue;
+    if (DIUtils::isStructPointerTy(curDIType)) {
+      // TODO: Handle struct pointers here
+    } else if (DIUtils::isPointerType(curDIType)) { // For all the other types
+
+    }
 
     // std::string ptrStarNum = "";
     // std::string structPtrName = DIUtils::getDITypeName(curDIType);
@@ -933,10 +971,18 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
 std::string pdg::getAccessAttributeName(tree<InstructionWrapper *>::iterator treeI)
 {
   std::vector<std::string> access_attribute = {
-      "No Access",
-      "",
+      "[-]",
+      "[in]",
       "[out]"};
   int accessIdx = static_cast<int>((*treeI)->getAccessType());
+  return access_attribute[accessIdx];
+}
+
+std::string pdg::getAccessAttributeName(unsigned accessIdx) {
+  std::vector<std::string> access_attribute = {
+      "[-]",
+      "[in]",
+      "[out]"};
   return access_attribute[accessIdx];
 }
 

@@ -71,6 +71,7 @@ private:
 };
 
 std::string getAccessAttributeName(tree<InstructionWrapper *>::iterator treeI);
+std::string getAccessAttributeName(unsigned accessIdx);
 
 } // namespace pdg
 #endif
