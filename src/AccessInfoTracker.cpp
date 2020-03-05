@@ -812,6 +812,11 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
   std::string sharedFieldPrefix = curImportedTransFuncName + argName;
 
+  DIFile *file = (*check)->getDIType()->getFile();
+  if (file != nullptr)
+    idl_file << "\t\tinclude \"" << file->getFilename().str() << "\" // For param: "
+             << argName << "\n\n ";
+
   // std::queue<tree<InstructionWrapper*>::iterator> treeNodeQ;
   // treeNodeQ.push(argW->tree_begin(treeTy));
   // std::queue<tree<InstructionWrapper*>::iterator> funcPtrQ;
