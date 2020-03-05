@@ -670,13 +670,13 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
   // handle return type, concate with function name
   if (PDG->isStructPointer(F.getReturnType())) // generate alloc(caller) as return struct pointer is from the other side
   {
-    auto funcName = F.getName().str();
-    if (retTypeName.back() == '*')
-    {
-      retTypeName.pop_back();
-      funcName.push_back('*');
-    }
-    retTypeName = "projection " + retTypeName + "_" + funcName;
+    // auto funcName = F.getName().str();
+    // if (retTypeName.back() == '*')
+    // {
+    //   retTypeName.pop_back();
+    //   funcName.push_back('*');
+    // }
+    retTypeName = "struct " + retTypeName;
   }
   
   idl_file << "\t\t" << retTypeName << " " << F.getName().str() << "( ";
@@ -689,16 +689,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (PDG->isStructPointer(argType))
     {
-      auto argName = DIUtils::getArgTypeName(arg);
-      auto funcName = F.getName().str();
-      if (argName.back() == '*')
-      {
-        argName.pop_back();
-        funcName.push_back('*');
-      }
-
-      std::string argTypeName = argName + "_" + funcName;
-      idl_file << "projection " << argTypeName << " " << argName;
+      idl_file << "struct " << DIUtils::getArgTypeName(arg) <<" "<< argName;
     }
     else if (PDG->isFuncPointer(argType)) {
       idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
