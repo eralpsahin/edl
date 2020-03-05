@@ -363,20 +363,20 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
   for (auto treeI = argW->tree_begin(TreeType::FORMAL_IN_TREE); treeI != argW->tree_end(TreeType::FORMAL_IN_TREE); ++treeI)
   {
     // hanlde static defined functions, assume all functions poineter that are linked with defined function in device driver module should be used by kernel.
-    if (DIUtils::isFuncPointerTy((*treeI)->getDIType()))
-    {
-      std::string funcptrName = DIUtils::getDIFieldName((*treeI)->getDIType());
-      if (staticFuncptrList.find(funcptrName) != staticFuncptrList.end())
-      {
-        (*treeI)->setAccessType(AccessType::READ);
-        // update shared field map
-        auto &dbgInstList = pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
-        std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
-        bool isKernel = (definedFuncList.find(func->getName()) == definedFuncList.end()); // not in device deiver module
-        updateSharedFieldMap(argName + funcptrName, isKernel);
-        continue;
-      }
-    }
+    // if (DIUtils::isFuncPointerTy((*treeI)->getDIType()))
+    // {
+    //   std::string funcptrName = DIUtils::getDIFieldName((*treeI)->getDIType());
+    //   if (staticFuncptrList.find(funcptrName) != staticFuncptrList.end())
+    //   {
+    //     (*treeI)->setAccessType(AccessType::READ);
+    //     // update shared field map
+    //     auto &dbgInstList = pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
+    //     std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
+    //     bool isKernel = (definedFuncList.find(func->getName()) == definedFuncList.end()); // not in device deiver module
+    //     updateSharedFieldMap(argName + funcptrName, isKernel);
+    //     continue;
+    //   }
+    // }
 
     auto valDepPairList = PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
     for (auto valDepPair : valDepPairList)
@@ -691,9 +691,9 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     {
       idl_file << "struct " << DIUtils::getArgTypeName(arg) <<" "<< argName;
     }
-    else if (PDG->isFuncPointer(argType)) {
-      idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
-    }
+    // else if (PDG->isFuncPointer(argType)) {
+    //   idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
+    // }
     else
       idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
 
