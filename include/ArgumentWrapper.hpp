@@ -4,6 +4,7 @@
 #include "InstructionWrapper.hpp"
 #include "PDGEnums.hpp"
 #include "tree.hh"
+#include "Attribute.h"
 
 namespace pdg
 {
@@ -17,6 +18,7 @@ private:
   tree<InstructionWrapper *> actualInTree;
   tree<InstructionWrapper *> actualOutTree;
   std::vector<std::pair<InstructionWrapper*, InstructionWrapper*>> paramCallInstPairs;
+  Attribute attribute;
 public:
   ArgumentWrapper() = delete;
   explicit ArgumentWrapper(llvm::Argument *arg);
@@ -29,6 +31,7 @@ public:
   tree<InstructionWrapper *>::iterator tree_begin(TreeType treeTy);
   tree<InstructionWrapper *>::iterator tree_end(TreeType treeTy);
   llvm::Function *getFunc() { return Func; }
+  Attribute & getAttribute() {return attribute;}
 };
 
 } // namespace pdg
