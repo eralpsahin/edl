@@ -396,6 +396,27 @@ bool pdg::DIUtils::isFuncPointerTy(DIType *dt)
   return false;
 }
 
+bool pdg::DIUtils::isTypeDefPtrTy(llvm::Argument &arg) {
+  DIType * ty = getArgDIType(arg);
+  if (ty->getTag()== dwarf::DW_TAG_typedef) {
+    ty = getBaseDIType(ty);
+    if (ty->getTag() == dwarf::DW_TAG_pointer_type) return true;
+  }
+  return isTypeDefConstPtrTy(arg);
+}
+
+bool pdg::DIUtils::isTypeDefConstPtrTy(llvm::Argument &arg) {
+  DIType *ty = getArgDIType(arg);
+  if (ty->getTag() == dwarf::DW_TAG_typedef) {
+    ty = getBaseDIType(ty);
+    if (ty->getTag() == dwarf::DW_TAG_const_type) {
+      ty = dyn_cast<DIDerivedType>(ty)->getBaseType();
+      if (ty->getTag() == dwarf::DW_TAG_pointer_type) return true;
+    }
+  }
+  return false;
+}
+
 DIType *pdg::DIUtils::stripMemberTag(DIType *dt)
 {
   if (dt == nullptr)
