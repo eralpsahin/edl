@@ -409,9 +409,9 @@ bool pdg::DIUtils::isTypeDefConstPtrTy(llvm::Argument &arg) {
   DIType *ty = getArgDIType(arg);
   if (ty->getTag() == dwarf::DW_TAG_typedef) {
     ty = getBaseDIType(ty);
-    if (ty->getTag() == dwarf::DW_TAG_const_type) {
-      ty = dyn_cast<DIDerivedType>(ty)->getBaseType();
-      if (ty->getTag() == dwarf::DW_TAG_pointer_type) return true;
+    if (ty->getTag() == dwarf::DW_TAG_pointer_type) {
+      ty = getBaseDIType(ty);
+      if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_const_type) return true;
     }
   }
   return false;
