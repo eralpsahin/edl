@@ -37,7 +37,6 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   seenFuncOps = false;
   kernelFuncList = importedFuncList;
 
-  //?  Execute the PDG analysis here
   auto &pdgUtils = PDGUtils::getInstance();
   PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
 
@@ -46,7 +45,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
     exit(0);
   }
-  //?  Execute Call Wrapper analysis here
+
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
   std::string file_name = "enclave";
@@ -135,7 +134,6 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   seenFuncOps = false;
   kernelFuncList = importedFuncList;
 
-  //?  Execute the PDG analysis here
   auto &pdgUtils = PDGUtils::getInstance();
   PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
   if (!USEDEBUGINFO)
@@ -143,7 +141,7 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
     exit(0);
   }
-  //?  Execute Call Wrapper analysis here
+
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
   std::string file_name = "enclave";
@@ -153,8 +151,6 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
   for (auto funcName : importedFuncList)
   {
-    
-
     sharedFieldMap.clear();
     crossBoundary = false;
     curImportedTransFuncName = funcName;
@@ -176,9 +172,7 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
       auto transFunc = *iter;
       if (transFunc->isDeclaration())
         continue;
-
       if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end()) {
-        
         if (allow.str().length() > 6)  allow << ", ";
         allow << transFunc->getName().str();
         crossBoundary = true;
@@ -217,13 +211,10 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
 bool pdg::AccessInfoTracker::runOnModule(Module &M)
 {
+  // Read the untrusted domain information to create trusted side
   createTrusted(UPREFIX, M);
-  /**
-   * TODO: Remember ECALLs in the trusted side
-   * TODO: Update -llvm-test to get an argument to prefix the output file names
-   * TODO: Read correct files for each sides at this step we will have trusted and untrusted
-   * TODO: While writing the untrusted check if the function calls 
-   */
+
+  // Clear function lists
   lockFuncList.clear();
   blackFuncList.clear();
   staticFuncList.clear();
@@ -232,6 +223,7 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   kernelFuncList.clear();
   driverFuncPtrCallTargetMap.clear();
 
+  // Read the trusted domain information to create untrusted side
   createUntrusted(TPREFIX, M);
   return false;
 }
