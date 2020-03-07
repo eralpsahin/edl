@@ -48,6 +48,10 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
 
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
+  // Get the main Functions closure for root ECALLs
+  auto main = M.getFunction(StringRef("main"));
+  auto mainClosure = getTransitiveClosure(*main);
+
   std::string file_name = "enclave";
   file_name += ".edl";
   idl_file.open(file_name);
@@ -78,8 +82,9 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
       getIntraFuncReadWriteInfoForFunc(*transFunc);
       getInterFuncReadWriteInfo(*transFunc);
     }
-    // errs() << "Cross boundary? " << crossBoundary << "\n";
-    generateIDLforFunc(*func);
+    if (std::find(mainClosure.begin(), mainClosure.end(), func) != mainClosure.end()) // This function is in main Funcs closure
+      generateIDLforFunc(*func, true); // It is possibly a root ECALL
+    else generateIDLforFunc(*func, false);
     idl_file <<";\n\n";
   }
 
@@ -180,9 +185,8 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
       getIntraFuncReadWriteInfoForFunc(*transFunc);
       getInterFuncReadWriteInfo(*transFunc);
     }
-    // errs() << "Cross boundary? " << crossBoundary << "\n";
     allow << ");";
-    generateIDLforFunc(*func);
+    generateIDLforFunc(*func, false);
     // Write the allow syntax if there is an ECALL in this OCALL
     if (allow.str().length() > 8)
       idl_file << allow.str() <<"\n\n";
@@ -676,7 +680,7 @@ void pdg::AccessInfoTracker::printArgAccessInfo(ArgumentWrapper *argW, TreeType 
   }
 }
 
-void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
+void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
 {
   auto &pdgUtils = PDGUtils::getInstance();
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
@@ -698,7 +702,9 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
     retTypeName = "struct " + retTypeName;
   }
   
-  idl_file << "\t\t" << retTypeName << " " << F.getName().str() << "( ";
+  idl_file << "\t\t";
+  if (root) idl_file << "public ";
+  idl_file << retTypeName << " " << F.getName().str() << "( ";
   // handle parameters
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList())
   {
@@ -726,7 +732,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F)
   idl_file << " )";//\n\n";
 }
 
-void pdg::AccessInfoTracker::generateIDLforFunc(Function &F)
+void pdg::AccessInfoTracker::generateIDLforFunc(Function &F, bool root)
 {
   // if a function is defined on the same side, no need to generate IDL rpc for this function.
   auto &pdgUtils = PDGUtils::getInstance();
@@ -736,7 +742,7 @@ void pdg::AccessInfoTracker::generateIDLforFunc(Function &F)
     generateIDLforArg(argW, TreeType::FORMAL_IN_TREE);
   }
   generateIDLforArg(funcW->getRetW(), TreeType::FORMAL_IN_TREE);
-  generateRpcForFunc(F);
+  generateRpcForFunc(F, root);
 }
 
 void pdg::AccessInfoTracker::generateIDLforFuncPtrWithDI(DIType *funcDIType, Module *module, std::string funcPtrName)

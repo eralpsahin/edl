@@ -35,10 +35,10 @@ public:
   void printFuncArgAccessInfo(llvm::Function &F);
   void printArgAccessInfo(ArgumentWrapper *argW, TreeType ty);
   void generateIDLForCallInsts(llvm::Function &F);
-  void generateIDLforFunc(llvm::Function &F);
+  void generateIDLforFunc(llvm::Function &F, bool root);
   void generateIDLforFuncPtr(llvm::Type* ty, std::string funcName, llvm::Function& F);
   void generateIDLforFuncPtrWithDI(llvm::DIType *funcDIType, llvm::Module *module, std::string funcPtrName);
-  void generateRpcForFunc(llvm::Function &F);
+  void generateRpcForFunc(llvm::Function &F, bool root);
   void generateIDLForCallInstW(CallWrapper *CW);
   void generateIDLforArg(ArgumentWrapper *argW, TreeType ty, std::string funcName = "", bool handleFuncPtr = false);
   tree<InstructionWrapper *>::iterator generateIDLforStructField(ArgumentWrapper *argW, int subtreeSize, tree<InstructionWrapper *>::iterator treeI, std::stringstream &ss, TreeType ty);

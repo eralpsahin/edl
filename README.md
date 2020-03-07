@@ -8,7 +8,7 @@
 ## Next Steps
 
 - [ ] Automatizing C project to SGX
-- [ ] Public (root) ECALL
+- [X] Public (root) ECALL
 - [ ] Struct, enum declarations
 - [ ] Additional include statement features
 - [ ] [String] attribute
