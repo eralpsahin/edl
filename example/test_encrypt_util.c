@@ -2,13 +2,18 @@
 #include <stdlib.h>
 
 #include "test_encrypt.h"
-int typedefParams(cptr a, carry b, mysecret* secret) {
-  a = malloc(sizeof(char));
 
-  secret->key = 1;
-  return secret->key;
+extern char __attribute__((annotate("sensitive"))) * key;
+extern char *ciphertext;
+extern unsigned int i;
+
+void initkey(int sz) {
+  key = (char *)(malloc(sz));
+  // init the key randomly; code omitted
+  for (i = 0; i < sz; i++) key[i] = 1;
 }
 
-void ecall_private() {}
-
-void ecall_root(int sz) { ocall_func("TEST"); }
+void encrypt(char *plaintext, int sz) {
+  ciphertext = (char *)(malloc(sz));
+  for (i = 0; i < sz; i++) ciphertext[i] = plaintext[i] ^ key[i];
+}

@@ -1,0 +1,13 @@
+enclave {
+
+	trusted {
+		public void encrypt( [in] char* plaintext, int sz );
+
+		public void initkey( int sz );
+
+	};
+
+	untrusted {
+	};
+
+};

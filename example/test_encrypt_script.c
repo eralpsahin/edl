@@ -4,20 +4,22 @@
 
 #include "test_encrypt.h"
 
-void ocall_func(const char * str) {
-  printf("%s\n", str);
-
-  mysecret* secret = malloc(sizeof(mysecret));
-  cptr a;
-  carry b;
-  typedefParams(a, b, secret);
-  ecall_private();
+void greeter(char *str) {
+  printf("%s", str);
+  printf(", welcome!\n");
 }
 
 int main() {
   char username[20], text[1024];
+  printf("Enter username: ");
+  scanf("%19s", username);
+  greeter(username);
+  printf("Enter plaintext: ");
+  scanf("%1023s", text);
 
-  ecall_root(10);
-
+  initkey(strlen(text));
+  encrypt(text, strlen(text));
+  printf("Cipher text: ");
+  for (i = 0; i < strlen(text); i++) printf("%x ", ciphertext[i]);
   return 0;
 }
