@@ -18,7 +18,7 @@ clean: eclean
 	@rm -rf $(ODIR)
 
 # 
-#	* Rules for running the IDL pass on the project
+#	* Rules for running the EDL pass on the project
 # #########################################################################
 
 # Do EDL generation pass
