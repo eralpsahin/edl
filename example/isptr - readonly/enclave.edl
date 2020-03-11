@@ -1,0 +1,13 @@
+enclave {
+
+	trusted {
+		include "example/test_encrypt.h" // For param: str
+
+ 		public unsigned int get_length( [user_check, isptr, readonly] ccptr str );
+
+	};
+
+	untrusted {
+	};
+
+};

@@ -1,0 +1,15 @@
+enclave {
+
+	trusted {
+		public void generate_secret_value( [out] int* i );
+
+		void get_secret_digit_count( [in, out] int* secret, [out] int* digit );
+
+	};
+
+	untrusted {
+		void ocall_printf( [user_check] int* secret )allow(get_secret_digit_count);
+
+	};
+
+};
