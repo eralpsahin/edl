@@ -22,21 +22,25 @@ clean: eclean
 # #########################################################################
 
 # Do EDL generation pass
-edl: gen-u gen-t $(EDIR)/test_encrypt.ll
-	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "untrusted/" -t "trusted/" < ../$(EDIR)/test_encrypt.ll
+edl: gen-u gen-t $(EDIR)/test.ll
+	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "untrusted/" -t "trusted/" < ../$(EDIR)/test.ll
 
 # Generate function list from untrusted
-gen-u: libplugin.so $(EDIR)/test_encrypt_script.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(UNTRUSTED)/ < ../$(EDIR)/test_encrypt_script.ll
+gen-u: libplugin.so $(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(UNTRUSTED)/ < ../$(EDIR)/App.ll
 
 
 # Generate function list from trusted
-gen-t: libplugin.so $(EDIR)/test_encrypt_util.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/test_encrypt_util.ll
+gen-t: libplugin.so $(EDIR)/Enclave.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/Enclave.ll
+
+# Generate SGX project
+sgx: libplugin.so $(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -app ../$(EDIR)/App.c -enclave ../$(EDIR)/Enclave.c -defined_t trusted/defined_func.txt < ../$(EDIR)/App.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
-	@rm -rf $(ODIR)/enclave.edl $(TRUSTED_DIR) $(UNTRUSTED_DIR)
+	@rm -rf $(ODIR)/enclave.edl $(TRUSTED_DIR) $(UNTRUSTED_DIR) $(ODIR)/*.cpp
 
 # *************************************************************************
 
@@ -47,22 +51,22 @@ bclean: eclean
 
 # Run the example project
 .PHONY: run
-run: $(EDIR)/test_encrypt.ll
-	lli $(EDIR)/test_encrypt.ll
+run: $(EDIR)/test.ll
+	lli $(EDIR)/test.ll
 
 .PHONY: compile
-compile: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
-	llvm-link $(EDIR)/test_encrypt_*.ll -S -o $(EDIR)/test_encrypt.ll
+compile: $(EDIR)/App.ll $(EDIR)/Enclave.ll
+	llvm-link $(EDIR)/App.ll $(EDIR)/Enclave.ll -S -o $(EDIR)/test.ll
 
 # Link parts to create a combined ll
-$(EDIR)/test_encrypt.ll: $(EDIR)/test_encrypt_util.ll $(EDIR)/test_encrypt_script.ll
-	llvm-link $(EDIR)/test_encrypt_*.ll -S -o $@
+$(EDIR)/test.ll: $(EDIR)/App.ll $(EDIR)/Enclave.ll
+	llvm-link $(EDIR)/App.ll $(EDIR)/Enclave.ll -S -o $@
 
 # Compile trusted and untrusted parts
-$(EDIR)/test_encrypt_script.ll: $(EDIR)/test_encrypt_script.c $(EDIR)/test_encrypt.h
+$(EDIR)/App.ll: $(EDIR)/App.c $(EDIR)/Enclave.h
 	$(CC) $(CC_FLAGS) $< -o $@
 
-$(EDIR)/test_encrypt_util.ll: $(EDIR)/test_encrypt_util.c $(EDIR)/test_encrypt.h
+$(EDIR)/Enclave.ll: $(EDIR)/Enclave.c $(EDIR)/Enclave.h
 	$(CC) $(CC_FLAGS) $< -o $@
 
 # Example clean cleans the ll files from the example.
