@@ -32,6 +32,7 @@ class DIUtils
     static bool isFuncPointerTy(llvm::DIType *dt);
     static bool isTypeDefPtrTy(llvm::Argument &arg);
     static bool isTypeDefConstPtrTy(llvm::Argument &arg);
+    static bool isVoidPointerTy(llvm::Argument &arg);
     static llvm::DIType *stripMemberTag(llvm::DIType *dt);
     static llvm::DIType *getFuncDIType(llvm::Function* func);
     static std::vector<llvm::Function *> collectIndirectCallCandidatesWithDI(llvm::DIType* funcDIType, llvm::Module* module, std::map<std::string, std::string> funcptrTargetMap);

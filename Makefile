@@ -40,7 +40,7 @@ sgx: libplugin.so $(EDIR)/App.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
-	@rm -rf $(ODIR)/enclave.edl $(TRUSTED_DIR) $(UNTRUSTED_DIR) $(ODIR)/*.cpp
+	@rm -rf $(ODIR)/Enclave.edl $(TRUSTED_DIR) $(UNTRUSTED_DIR) $(ODIR)/*.cpp
 
 # *************************************************************************
 

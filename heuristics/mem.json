@@ -1,0 +1,14 @@
+{
+  "in": [
+    "memchr",
+    "memcmp"
+  ],
+  "out": [
+   "memcpy",
+   "__memcpy_chk",
+   "memmove",
+   "__memmove_chk",
+   "memset",
+   "__memset_chk"
+  ]
+}

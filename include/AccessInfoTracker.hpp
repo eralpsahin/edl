@@ -1,14 +1,16 @@
 #ifndef ACCESSINFO_TRACKER_H_
 
 #define ACCESSINFO_TRACKER_H_
+#include <fstream>
+#include <map>
+#include <sstream>
+
+#include "DebugInfoUtils.hpp"
+#include "Heuristics.hpp"
+#include "ProgramDependencyGraph.hpp"
+#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Module.h"
 #include "llvm/PassAnalysisSupport.h"
-#include "ProgramDependencyGraph.hpp"
-#include "llvm/Analysis/CallGraph.h" 
-#include "DebugInfoUtils.hpp"
-#include <fstream>
-#include <sstream>
-#include <map>
 
 namespace pdg
 {
@@ -31,7 +33,7 @@ public:
   ArgumentMatchType getArgMatchType(llvm::Argument *arg1, llvm::Argument *arg2);
   void mergeArgAccessInfo(ArgumentWrapper *callerArgW, ArgumentWrapper *calleeArgW, tree<InstructionWrapper*>::iterator callerTreeI);
   bool getInterFuncReadWriteInfo(llvm::Function &F);
-  AccessType getAccessTypeForInstW(const InstructionWrapper *instW);
+  AccessType getAccessTypeForInstW(const InstructionWrapper *instW, ArgumentWrapper *argW);
   void printFuncArgAccessInfo(llvm::Function &F);
   void printArgAccessInfo(ArgumentWrapper *argW, TreeType ty);
   void generateIDLForCallInsts(llvm::Function &F);

@@ -4,7 +4,7 @@
 #include "InstructionWrapper.hpp"
 #include "PDGEnums.hpp"
 #include "tree.hh"
-#include "Attribute.h"
+#include "Attribute.hpp"
 
 namespace pdg
 {

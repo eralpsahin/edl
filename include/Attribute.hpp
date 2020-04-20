@@ -59,15 +59,14 @@ class Attribute {
     }
     if (readonly) {
       // First rule is readonly can not be used with out
-      assert(!out && "Readonly cannot be used with pout]");
+      assert(!out && "Readonly cannot be used with [out]");
       assert(isptr && "Readonly cannot be used without [isptr]");
       attrs.push_back("readonly");
     }
     if (string) {  // If there is a string attribute there should not be size or
                    // count
       attrs.push_back("string");
-    } else if (in || out){
-
+    } else if (in || out) {
       // TODO: handle when size or count is not a literal number
       if (size.length() != 0) attrs.push_back("size=" + size);
       if (count.length() != 0 && count != "1")

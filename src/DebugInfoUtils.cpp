@@ -417,6 +417,15 @@ bool pdg::DIUtils::isTypeDefConstPtrTy(llvm::Argument &arg) {
   return false;
 }
 
+bool pdg::DIUtils::isVoidPointerTy(llvm::Argument &arg) {
+  DIType *ty = getArgDIType(arg);
+  if (ty->getTag() == dwarf::DW_TAG_pointer_type) {
+    if (getDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType()) == "void")
+      return true;
+  }
+  return false;
+}
+
 DIType *pdg::DIUtils::stripMemberTag(DIType *dt)
 {
   if (dt == nullptr)

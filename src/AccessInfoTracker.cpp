@@ -52,8 +52,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   auto main = M.getFunction(StringRef("main"));
   auto mainClosure = getTransitiveClosure(*main);
 
-  std::string file_name = "enclave";
-  file_name += ".edl";
+  std::string file_name = "Enclave.edl";
   idl_file.open(file_name);
   idl_file << "enclave" << " {\n\n\ttrusted {\n";
 
@@ -215,6 +214,10 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
 bool pdg::AccessInfoTracker::runOnModule(Module &M)
 {
+  // Populate function name sets for [string, size, count] attributes
+  Heuristics::populateStringFuncs();
+  Heuristics::populateMemFuncs();
+
   // Read the untrusted domain information to create trusted side
   createTrusted(UPREFIX, M);
 
@@ -276,39 +279,55 @@ std::vector<Function *> pdg::AccessInfoTracker::getTransitiveClosure(Function &F
   return transClosure;
 }
 
-AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(const InstructionWrapper *instW)
-{
+AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
+    const InstructionWrapper *instW, ArgumentWrapper *argW) {
   auto dataDList = PDG->getNodeDepList(instW->getInstruction());
   AccessType accessType = AccessType::NOACCESS;
-  for (auto depPair : dataDList)
-  {
-    InstructionWrapper *depInstW = const_cast<InstructionWrapper *>(depPair.first->getData());
+  for (auto depPair : dataDList) {
+    InstructionWrapper *depInstW =
+        const_cast<InstructionWrapper *>(depPair.first->getData());
     DependencyType depType = depPair.second;
-
     // check for read
-    if (!depInstW->getInstruction())
+    if (!depInstW->getInstruction() || depType != DependencyType::DATA_DEF_USE)
       continue;
 
-    if (depType == DependencyType::DATA_DEF_USE)
-    {
-      if (isa<LoadInst>(depInstW->getInstruction()) || isa<GetElementPtrInst>(depInstW->getInstruction()))
-        accessType = AccessType::READ;
-    }
+    if (isa<LoadInst>(depInstW->getInstruction()) ||
+        isa<GetElementPtrInst>(depInstW->getInstruction()))
+      accessType = AccessType::READ;
 
     // check for store instruction.
-    if (depType == DependencyType::DATA_DEF_USE)
-    {
-      if (StoreInst *st = dyn_cast<StoreInst>(depInstW->getInstruction()))
-      {
-        // if a value is used in a store instruction and is the store destination
-        if (dyn_cast<Instruction>(st->getPointerOperand()) == instW->getInstruction())
-        {
-          if (isa<Argument>(st->getValueOperand())) // ignore the store inst that store arg to stack mem
-            break;
-          accessType = AccessType::WRITE;
+
+    if (StoreInst *st = dyn_cast<StoreInst>(depInstW->getInstruction())) {
+      // if a value is used in a store instruction and is the store destination
+      if (dyn_cast<Instruction>(st->getPointerOperand()) ==
+          instW->getInstruction()) {
+        if (isa<Argument>(st->getValueOperand()))  // ignore the store inst that
+                                                   // store arg to stack mem
+          break;
+        accessType = AccessType::WRITE;
+        break;
+      }
+    }
+    // Heuristic checks for string-only functions
+    if (CallInst *callInst = dyn_cast<CallInst>(depInstW->getInstruction())) {
+      // Get the funcName this argument is used as parameter
+
+      std::string funcName = callInst->getCalledFunction()->getName().str();
+
+      int argNum = -1;
+      int curr = 0;
+      for (auto arg = callInst->arg_begin(); arg != callInst->arg_end();
+           ++arg) {
+        if (instW->getInstruction() == *arg) {
+          argNum = curr;
           break;
         }
+        curr += 1;
       }
+      assert(argNum != -1 && "argument is not found in the callInst's arguments");
+      Heuristics::addStringAttribute(funcName, argNum, argW);
+      if (DIUtils::isVoidPointerTy(*argW->getArg()))
+        Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
     }
   }
   return accessType;
@@ -385,7 +404,7 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
           PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
       for (auto valDepPair : valDepPairList) {
         auto dataW = valDepPair.first->getData();
-        AccessType accType = getAccessTypeForInstW(dataW);
+        AccessType accType = getAccessTypeForInstW(dataW, argW);
         if (static_cast<int>(accType) >
             static_cast<int>((*treeI)->getAccessType())) {
           auto &dbgInstList =

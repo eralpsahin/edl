@@ -1,0 +1,26 @@
+{
+  "in": [
+    "strlen",
+    "strnlen",
+    "strcmp",
+    "strncmp",
+    "strcoll",
+    "strtok",
+    "strchr",
+    "strrchr",
+    "strpbrk",
+    "strspn",
+    "strcspn",
+    "strstr"
+  ],
+  "out": [
+    "strcat",
+    "__strcat_chk",
+    "strncat",
+    "__strncat_chk",
+    "strcpy",
+    "__strcpy_chk",
+    "strncpy",
+    "__strncpy_chk"
+  ]
+}
