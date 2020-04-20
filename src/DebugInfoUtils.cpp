@@ -339,6 +339,19 @@ std::string pdg::DIUtils::getArgTypeName(Argument &arg)
   return getDITypeName(getArgDIType(arg));
 }
 
+std::string pdg::DIUtils::getStructDefinition(Argument &arg) {
+  std::string res = "\tstruct ";
+  DICompositeType *diComp =
+      dyn_cast<DICompositeType>(getLowestDIType(getArgDIType(arg)));
+  res += diComp->getName().str() + " {\n";
+  for (auto el : diComp->getElements()) {
+    DIType * elType = dyn_cast<DIType>(el);
+    res += "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
+  }
+  res += "\t};\n";
+  return res;
+}
+
 void pdg::DIUtils::printStructFieldNames(DINodeArray DINodeArr)
 {
   for (auto DINode : DINodeArr)
