@@ -311,9 +311,12 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
     // Heuristic checks for string-only functions
     if (CallInst *callInst = dyn_cast<CallInst>(depInstW->getInstruction())) {
       // Get the funcName this argument is used as parameter
-
-      std::string funcName = callInst->getCalledFunction()->getName().str();
-
+      std::string funcName;
+      if (callInst->getCalledFunction()) {
+        funcName = callInst->getCalledFunction()->getName().str();
+      } else { // continue if function is inaccessible
+        continue;
+      }
       int argNum = -1;
       int curr = 0;
       for (auto arg = callInst->arg_begin(); arg != callInst->arg_end();
