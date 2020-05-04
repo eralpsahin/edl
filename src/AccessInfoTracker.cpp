@@ -232,7 +232,72 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
 
   // Read the trusted domain information to create untrusted side
   createUntrusted(TPREFIX, M);
+
+  createECALLWrappers(M);
   return false;
+}
+
+void pdg::AccessInfoTracker::createECALLWrappers(Module &M) {
+  auto &pdgUtils = PDGUtils::getInstance();
+  std::ofstream ecallWrappers("ecalls.cpp");
+  ecallWrappers << "sgx_enclave_id_t global_eid = 0;\n";
+  for (Function &F : M) {
+    if (F.isDeclaration()) continue;
+    if (definedFuncList.find(F.getName().str()) == definedFuncList.end()) continue; 
+    FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
+    // for arguments
+    DIType *funcRetType = DIUtils::getFuncRetDIType(F);
+    std::string retTypeName;
+    if (funcRetType == nullptr)
+      retTypeName = "void";
+    else
+      retTypeName = DIUtils::getDITypeName(funcRetType);
+    ecallWrappers << retTypeName << " " << F.getName().str() << "_ECALL( ";
+    std::vector<std::pair<std::string, std::string> > argVec;
+    for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
+      Argument &arg = *argW->getArg();
+      Type *argType = arg.getType();
+      auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
+      std::string argName = DIUtils::getArgName(arg, dbgInstList);
+      if (PDG->isStructPointer(argType)) {
+        ecallWrappers << " struct " << DIUtils::getArgTypeName(arg) << " "
+                      << argName;
+        argVec.push_back(make_pair("struct " + DIUtils::getArgTypeName(arg), argName));
+      }
+      else {
+        if (argType->getTypeID() == 15) {
+          ecallWrappers << DIUtils::getArgTypeName(arg) << " " << argName;
+          argVec.push_back(
+              make_pair(DIUtils::getArgTypeName(arg), argName));
+
+        } else {
+          ecallWrappers << DIUtils::getArgTypeName(arg) << " " << argName;
+          argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
+        }
+      }
+
+      if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty()) {
+        ecallWrappers << ", ";
+      }
+    }
+    ecallWrappers << ") {\n";
+    if (retTypeName != "void") {
+      ecallWrappers << "\t" << retTypeName << " res;\n";
+    }
+    ecallWrappers << "\t" << F.getName().str() << "(global_eid";
+    if (retTypeName != "void") {
+      ecallWrappers << ", &res";
+    }
+    for (auto arg : argVec) {
+      ecallWrappers << ", " << arg.second;
+    }
+    ecallWrappers <<");\n";
+    if (retTypeName != "void") {
+      ecallWrappers << "\treturn res;\n";
+    }
+    ecallWrappers << "}\n";
+  }
+  ecallWrappers.close();
 }
 
 void pdg::AccessInfoTracker::getAnalysisUsage(AnalysisUsage &AU) const

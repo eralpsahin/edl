@@ -22,6 +22,7 @@ public:
   bool runOnModule(llvm::Module &M);
   void createTrusted(std::string prefix, llvm::Module &M);
   void createUntrusted(std::string prefix, llvm::Module &M);
+  void createECALLWrappers(llvm::Module &M);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForCallInsts(llvm::Function &Func);
   void printRetValueAccessInfo(llvm::Function &Func);
