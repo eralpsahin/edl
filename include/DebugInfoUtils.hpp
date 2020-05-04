@@ -24,12 +24,14 @@ class DIUtils
     // static std::string getFuncDITypeName(llvm::DIType *dt, std::string funcName);
     static std::string getArgName(llvm::Argument &arg, std::vector<llvm::DbgDeclareInst *> dbgInstList);
     static std::string getArgTypeName(llvm::Argument &arg);
-    static std::string getStructDefinition(llvm::Argument &arg);
+    static std::string getStructDefinition(llvm::DIType *dt);
+    static std::string getEnumDefinition(llvm::DIType *dt);
     static std::string getFuncSigName(llvm::DIType *ty, std::string funcPtrName = "", std::string funcName = "", bool callFromDev = true);
     static void printStructFieldNames(llvm::DINodeArray DINodeArr);
     static bool isPointerType(llvm::DIType *dt);
     static bool isStructPointerTy(llvm::DIType *dt);
     static bool isStructTy(llvm::DIType *dt);
+    static bool isEnumTy(llvm::DIType *dt);
     static bool isFuncPointerTy(llvm::DIType *dt);
     static bool isTypeDefPtrTy(llvm::Argument &arg);
     static bool isTypeDefConstPtrTy(llvm::Argument &arg);

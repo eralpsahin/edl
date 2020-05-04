@@ -318,7 +318,7 @@ std::string pdg::DIUtils::getDITypeName(DIType *ty)
     case dwarf::DW_TAG_const_type:
       return "const " + getDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType());
     case dwarf::DW_TAG_enumeration_type:
-      return "enum";
+      return "enum " + ty->getName().str();
     default:
     {
       if (!ty->getName().str().empty())
@@ -339,15 +339,30 @@ std::string pdg::DIUtils::getArgTypeName(Argument &arg)
   return getDITypeName(getArgDIType(arg));
 }
 
-std::string pdg::DIUtils::getStructDefinition(Argument &arg) {
+std::string pdg::DIUtils::getStructDefinition(DIType *ty) {
   std::string res = "\tstruct ";
-  DICompositeType *diComp =
-      dyn_cast<DICompositeType>(getLowestDIType(getArgDIType(arg)));
+  DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
   res += diComp->getName().str() + " {\n";
   for (auto el : diComp->getElements()) {
     DIType * elType = dyn_cast<DIType>(el);
     res += "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
   }
+  res += "\t};\n";
+  return res;
+}
+
+std::string pdg::DIUtils::getEnumDefinition(DIType *ty) {
+  std::string res = "\tenum ";
+  DICompositeType *diComp =
+      dyn_cast<DICompositeType>(getLowestDIType(ty));
+  res += diComp->getName().str() + " { ";
+  for (auto el : diComp->getElements()) {
+    DIEnumerator *enumEl = dyn_cast<DIEnumerator>(el);
+    res += enumEl->getName().str() + ", ";
+    // res +=
+    //     "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
+  }
+  res = res.substr(0, res.length() -2);
   res += "\t};\n";
   return res;
 }
@@ -391,6 +406,17 @@ bool pdg::DIUtils::isStructTy(DIType *dt)
   auto baseTy = getLowestDIType(dt);
   if (baseTy != nullptr)
     return (baseTy->getTag() == dwarf::DW_TAG_structure_type);
+  return false;
+}
+
+bool pdg::DIUtils::isEnumTy(llvm::DIType *dt) {
+  if (dt == nullptr)
+    return false;
+  if (dt->getTag() == dwarf::DW_TAG_pointer_type)
+    return false;
+  auto baseTy = getLowestDIType(dt);
+  if (baseTy != nullptr)
+    return (baseTy->getTag() == dwarf::DW_TAG_enumeration_type);
   return false;
 }
 

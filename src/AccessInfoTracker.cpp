@@ -726,6 +726,12 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
 {
   auto &pdgUtils = PDGUtils::getInstance();
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
+  if (DIUtils::isStructPointerTy(funcRetType) || DIUtils::isStructTy(funcRetType)) {
+    idl_file << DIUtils::getStructDefinition(funcRetType);
+  }
+  if (DIUtils::isEnumTy(funcRetType)) {
+    idl_file << DIUtils::getEnumDefinition(funcRetType);
+  }
   std::string retTypeName;
   if (funcRetType == nullptr)
     retTypeName = "void";
@@ -848,11 +854,13 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
   std::string sharedFieldPrefix = curImportedTransFuncName + argName;
   auto curDIType = (*check)->getDIType();
-   if (DIUtils::isStructPointerTy(curDIType)) {
-     // TODO: Put struct definition on top
-     idl_file << DIUtils::getStructDefinition(*argW->getArg());
-   }
-  // TODO: Fix header include statements
+  // TODO: Put definitions on outer scope
+  if (DIUtils::isStructPointerTy(curDIType) || DIUtils::isStructTy(curDIType)) {
+    idl_file << DIUtils::getStructDefinition(DIUtils::getArgDIType(*argW->getArg()));
+  } else if (DIUtils::isEnumTy(curDIType)) {
+    idl_file << DIUtils::getEnumDefinition(
+        DIUtils::getArgDIType(*argW->getArg()));
+  }
   DIFile *file = curDIType->getFile();
   if (file != nullptr)
           idl_file
