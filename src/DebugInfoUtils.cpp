@@ -307,7 +307,7 @@ std::string pdg::DIUtils::getDITypeName(DIType *ty)
     case dwarf::DW_TAG_subroutine_type:
       return getFuncSigName(ty);
     case dwarf::DW_TAG_union_type:
-      return "union";
+      return "union " + ty->getName().str();
     case dwarf::DW_TAG_structure_type:
     {
       std::string st_name = ty->getName().str();
