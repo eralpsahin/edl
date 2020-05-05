@@ -39,13 +39,17 @@ class SGXGenerator : public llvm::ModulePass {
   bool runOnModule(llvm::Module &M);
   virtual bool doInitialization(llvm::Module &M);
   virtual bool doFinalization(llvm::Module &M);
-  void generateAppFile(unsigned eidLine, unsigned initLine);
-  void generateEnclaveFile();
+  
 
  private:
   std::set<std::string> definedFuncsT;  // Defined Functions of the Trusted Side
   std::vector<ECALLLoc> ecallVec;
   std::string initialize;
+
+  void generateAppFile(unsigned eidLine, unsigned initLine);
+  void generateEnclaveFile();
+
+  int searchECALL(int line);
 };
 
 }  // namespace pdg
