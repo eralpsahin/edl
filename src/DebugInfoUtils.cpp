@@ -342,7 +342,12 @@ std::string pdg::DIUtils::getArgTypeName(Argument &arg)
 std::string pdg::DIUtils::getStructDefinition(DIType *ty) {
   std::string res = "\tstruct ";
   DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
-  res += diComp->getName().str() + " {\n";
+  std::string structName = diComp->getName().str();
+  if (structName == "") {
+    DIType *baseTy = dyn_cast<DIDerivedType>(ty)->getBaseType();
+    structName = baseTy->getName().str();
+  }
+  res += structName + " {\n";
   for (auto el : diComp->getElements()) {
     DIType * elType = dyn_cast<DIType>(el);
     res += "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
