@@ -12,7 +12,10 @@
     "strspn",
     "strcspn",
     "strstr",
-    "\01_open"
+    "strdup",
+    "strndup",
+    "\01_open",
+    "\01_fopen"
   ],
   "out": [
     "strcat",
