@@ -22,7 +22,7 @@ public:
   bool runOnModule(llvm::Module &M);
   void createTrusted(std::string prefix, llvm::Module &M);
   void createUntrusted(std::string prefix, llvm::Module &M);
-  void createECALLWrappers(llvm::Module &M);
+  void writeECALLWrapper(llvm::Function &F);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForCallInsts(llvm::Function &Func);
   void printRetValueAccessInfo(llvm::Function &Func);
@@ -56,6 +56,7 @@ private:
   ProgramDependencyGraph *PDG;
   llvm::CallGraph *CG;
   std::ofstream idl_file;
+  std::ofstream ecallWrapper_file;
   std::set<std::string> deviceObjStore; // Unused
   std::set<std::string> kernelObjStore; 
   std::set<std::string> importedFuncList;

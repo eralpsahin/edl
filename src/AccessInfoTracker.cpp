@@ -56,6 +56,10 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   idl_file.open(file_name);
   idl_file << "enclave" << " {\n\n\ttrusted {\n";
 
+  // Open file for ecall wrapper functions
+  ecallWrapper_file.open("ecalls.cpp");
+  ecallWrapper_file << "sgx_enclave_id_t global_eid = 0;\n";
+
   for (auto funcName : importedFuncList)
   {
     sharedFieldMap.clear();
@@ -81,6 +85,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
       getIntraFuncReadWriteInfoForFunc(*transFunc);
       getInterFuncReadWriteInfo(*transFunc);
     }
+    writeECALLWrapper(*func);
     if (std::find(mainClosure.begin(), mainClosure.end(), func) != mainClosure.end()) // This function is in main Funcs closure
       generateIDLforFunc(*func, true); // It is possibly a root ECALL
     else generateIDLforFunc(*func, false);
@@ -88,6 +93,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   }
 
   idl_file << "\t};\n";
+  ecallWrapper_file.close();
 
   // printGlobalLockWarningFunc();
 
@@ -218,7 +224,7 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   Heuristics::populateStringFuncs();
   Heuristics::populateMemFuncs();
 
-  // Read the untrusted domain information to create trusted side
+  // Read the untrusted domain information to create trusted side and wrappers
   createTrusted(UPREFIX, M);
 
   // Clear function lists
@@ -233,71 +239,61 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   // Read the trusted domain information to create untrusted side
   createUntrusted(TPREFIX, M);
 
-  createECALLWrappers(M);
+
   return false;
 }
 
-void pdg::AccessInfoTracker::createECALLWrappers(Module &M) {
+void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
   auto &pdgUtils = PDGUtils::getInstance();
-  std::ofstream ecallWrappers("ecalls.cpp");
-  ecallWrappers << "sgx_enclave_id_t global_eid = 0;\n";
-  for (Function &F : M) {
-    if (F.isDeclaration()) continue;
-    if (definedFuncList.find(F.getName().str()) == definedFuncList.end()) continue; 
-    FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
-    // for arguments
-    DIType *funcRetType = DIUtils::getFuncRetDIType(F);
-    std::string retTypeName;
-    if (funcRetType == nullptr)
-      retTypeName = "void";
-    else
-      retTypeName = DIUtils::getDITypeName(funcRetType);
-    ecallWrappers << retTypeName << " " << F.getName().str() << "_ECALL( ";
-    std::vector<std::pair<std::string, std::string> > argVec;
-    for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
-      Argument &arg = *argW->getArg();
-      Type *argType = arg.getType();
-      auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
-      std::string argName = DIUtils::getArgName(arg, dbgInstList);
-      if (PDG->isStructPointer(argType)) {
-        ecallWrappers << " struct " << DIUtils::getArgTypeName(arg) << " "
-                      << argName;
-        argVec.push_back(make_pair("struct " + DIUtils::getArgTypeName(arg), argName));
-      }
-      else {
-        if (argType->getTypeID() == 15) {
-          ecallWrappers << DIUtils::getArgTypeName(arg) << " " << argName;
-          argVec.push_back(
-              make_pair(DIUtils::getArgTypeName(arg), argName));
+  DIType *funcRetType = DIUtils::getFuncRetDIType(F);
+  std::string retTypeName;
+  if (funcRetType == nullptr)
+    retTypeName = "void";
+  else
+    retTypeName = DIUtils::getDITypeName(funcRetType);
 
-        } else {
-          ecallWrappers << DIUtils::getArgTypeName(arg) << " " << argName;
-          argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
-        }
-      }
+  ecallWrapper_file << retTypeName << " " << F.getName().str() << "_ECALL( ";
+  std::vector<std::pair<std::string, std::string> > argVec;
+  for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
+    Argument &arg = *argW->getArg();
+    Type *argType = arg.getType();
+    auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
+    std::string argName = DIUtils::getArgName(arg, dbgInstList);
+    if (PDG->isStructPointer(argType)) {
+      ecallWrapper_file << " " << DIUtils::getArgTypeName(arg) << " "
+                        << argName;
+      argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
+    } else {
+      if (argType->getTypeID() == 15) {
+        ecallWrapper_file << DIUtils::getArgTypeName(arg) << " " << argName;
+        argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
 
-      if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty()) {
-        ecallWrappers << ", ";
+      } else {
+        ecallWrapper_file << DIUtils::getArgTypeName(arg) << " " << argName;
+        argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
       }
     }
-    ecallWrappers << ") {\n";
-    if (retTypeName != "void") {
-      ecallWrappers << "\t" << retTypeName << " res;\n";
+
+    if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty()) {
+      ecallWrapper_file << ", ";
     }
-    ecallWrappers << "\t" << F.getName().str() << "(global_eid";
-    if (retTypeName != "void") {
-      ecallWrappers << ", &res";
-    }
-    for (auto arg : argVec) {
-      ecallWrappers << ", " << arg.second;
-    }
-    ecallWrappers <<");\n";
-    if (retTypeName != "void") {
-      ecallWrappers << "\treturn res;\n";
-    }
-    ecallWrappers << "}\n";
   }
-  ecallWrappers.close();
+  ecallWrapper_file << ") {\n";
+  if (retTypeName != "void") {
+    ecallWrapper_file << "\t" << retTypeName << " res;\n";
+  }
+  ecallWrapper_file << "\t" << F.getName().str() << "(global_eid";
+  if (retTypeName != "void") {
+    ecallWrapper_file << ", &res";
+  }
+  for (auto arg : argVec) {
+    ecallWrapper_file << ", " << arg.second;
+  }
+  ecallWrapper_file << ");\n";
+  if (retTypeName != "void") {
+    ecallWrapper_file << "\treturn res;\n";
+  }
+  ecallWrapper_file << "}\n";
 }
 
 void pdg::AccessInfoTracker::getAnalysisUsage(AnalysisUsage &AU) const
@@ -739,18 +735,6 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
   else
     retTypeName = DIUtils::getDITypeName(funcRetType);
 
-  // handle return type, concate with function name
-  if (PDG->isStructPointer(F.getReturnType())) // generate alloc(caller) as return struct pointer is from the other side
-  {
-    // auto funcName = F.getName().str();
-    // if (retTypeName.back() == '*')
-    // {
-    //   retTypeName.pop_back();
-    //   funcName.push_back('*');
-    // }
-    retTypeName = "struct " + retTypeName;
-  }
-  
   idl_file << "\t\t";
   if (root) idl_file << "public ";
   idl_file << retTypeName << " " << F.getName().str() << "( ";
@@ -763,7 +747,7 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (PDG->isStructPointer(argType))
     {
-      idl_file <<argW->getAttribute().dump() << " struct " << DIUtils::getArgTypeName(arg) <<" "<< argName;
+      idl_file <<argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) <<" "<< argName;
     }
     // else if (PDG->isFuncPointer(argType)) {
     //   idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
