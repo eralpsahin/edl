@@ -284,7 +284,14 @@ std::string pdg::DIUtils::getDITypeName(DIType *ty)
     switch (ty->getTag())
     {
     case dwarf::DW_TAG_typedef:
-      return ty->getName();
+      if (getBaseDIType(ty)->getTag() == dwarf::DW_TAG_structure_type) {
+        return "struct " + ty->getName().str();
+      } else if (getBaseDIType(ty)->getTag() == dwarf::DW_TAG_enumeration_type) {
+        return "enum " + ty->getName().str();
+      } else if (getBaseDIType(ty)->getTag() == dwarf::DW_TAG_union_type) {
+        return "union " + ty->getName().str();
+      }
+        return ty->getName();
       //return getDITypeName(getBaseDIType(ty));
     case dwarf::DW_TAG_member:
       return getDITypeName(getBaseDIType(ty));
@@ -309,12 +316,7 @@ std::string pdg::DIUtils::getDITypeName(DIType *ty)
     case dwarf::DW_TAG_union_type:
       return "union " + ty->getName().str();
     case dwarf::DW_TAG_structure_type:
-    {
-      std::string st_name = ty->getName().str();
-      if (!st_name.empty())
-        return st_name;
-      return "struct";
-    }
+      return "struct " + ty->getName().str();
     case dwarf::DW_TAG_const_type:
       return "const " + getDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType());
     case dwarf::DW_TAG_enumeration_type:
