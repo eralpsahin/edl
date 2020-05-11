@@ -592,6 +592,12 @@ JSON parse_string(const string &str, size_t &offset) {
         case 't':
           val += '\t';
           break;
+        case '0':
+          if (str[offset+1] == '1') {
+            val += '\01';
+            offset++;
+          }
+          break;
         case 'u': {
           val += "\\u";
           for (unsigned i = 1; i <= 4; ++i) {
