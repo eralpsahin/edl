@@ -470,6 +470,16 @@ bool pdg::DIUtils::isVoidPointerTy(llvm::Argument &arg) {
   return false;
 }
 
+bool pdg::DIUtils::isCharPointerTy(llvm::Argument &arg) {
+  DIType *ty = getArgDIType(arg);
+  if (ty->getTag() == dwarf::DW_TAG_pointer_type) {
+    std::string typeName =
+        getDITypeName(dyn_cast<DIDerivedType>(ty)->getBaseType());
+    if (typeName == "char" || typeName == "const char") return true;
+  }
+  return false;
+}
+
 DIType *pdg::DIUtils::stripMemberTag(DIType *dt)
 {
   if (dt == nullptr)

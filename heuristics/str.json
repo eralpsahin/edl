@@ -11,7 +11,8 @@
     "strpbrk",
     "strspn",
     "strcspn",
-    "strstr"
+    "strstr",
+    "\01_open"
   ],
   "out": [
     "strcat",

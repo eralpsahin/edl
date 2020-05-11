@@ -393,7 +393,8 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
         curr += 1;
       }
       assert(argNum != -1 && "argument is not found in the callInst's arguments");
-      Heuristics::addStringAttribute(funcName, argNum, argW);
+      if (DIUtils::isCharPointerTy(*argW->getArg()))
+        Heuristics::addStringAttribute(funcName, argNum, argW);
       if (DIUtils::isVoidPointerTy(*argW->getArg()))
         Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
     }
