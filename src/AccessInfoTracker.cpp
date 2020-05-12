@@ -725,9 +725,11 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
   if (DIUtils::isStructPointerTy(funcRetType) || DIUtils::isStructTy(funcRetType)) {
     idl_file << DIUtils::getStructDefinition(funcRetType);
-  }
-  if (DIUtils::isEnumTy(funcRetType)) {
+  } else if (DIUtils::isEnumTy(funcRetType)) {
     idl_file << DIUtils::getEnumDefinition(funcRetType);
+  } else if (DIUtils::isUnionTy(funcRetType) ||
+             DIUtils::isUnionPointerTy(funcRetType)) {
+    idl_file << DIUtils::getUnionDefinition(funcRetType);
   }
   std::string retTypeName;
   if (funcRetType == nullptr)
@@ -745,19 +747,12 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
     Type *argType = arg.getType();
     auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
-    if (PDG->isStructPointer(argType))
-    {
-      idl_file <<argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) <<" "<< argName;
-    }
-    // else if (PDG->isFuncPointer(argType)) {
-    //   idl_file << DIUtils::getFuncSigName(DIUtils::getLowestDIType(DIUtils::getArgDIType(arg)), argName, "");
-    // }
-    else {
-      if (argType->getTypeID() == 15)
-        idl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
-      else
-        idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
-    }
+    if (argType->getTypeID() == 15 &&
+        !(DIUtils::isUnionTy(DIUtils::getArgDIType(arg)))) // Reject non pointer unions explicitly
+      idl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+    else
+      idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
+    
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty())
       idl_file << ", ";
@@ -845,7 +840,11 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   } else if (DIUtils::isEnumTy(curDIType)) {
     idl_file << DIUtils::getEnumDefinition(
         DIUtils::getArgDIType(*argW->getArg()));
+  } else if (DIUtils::isUnionTy(curDIType) || DIUtils::isUnionPointerTy(curDIType)) {
+    idl_file << DIUtils::getUnionDefinition(
+        DIUtils::getArgDIType(*argW->getArg()));
   }
+
   DIFile *file = curDIType->getFile();
   if (file != nullptr)
           idl_file
