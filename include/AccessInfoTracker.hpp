@@ -12,11 +12,9 @@
 #include "llvm/IR/Module.h"
 #include "llvm/PassAnalysisSupport.h"
 
-namespace pdg
-{
-class AccessInfoTracker : public llvm::ModulePass
-{
-public:
+namespace pdg {
+class AccessInfoTracker : public llvm::ModulePass {
+ public:
   AccessInfoTracker() : llvm::ModulePass(ID) {}
   static char ID;
   bool runOnModule(llvm::Module &M);
@@ -27,22 +25,28 @@ public:
   void getIntraFuncReadWriteInfoForArg(ArgumentWrapper *argW, TreeType treeTy);
   void getIntraFuncReadWriteInfoForFunc(llvm::Function &F);
   bool getInterFuncReadWriteInfo(llvm::Function &F);
-  void mergeArgAccessInfo(ArgumentWrapper *callerArgW, ArgumentWrapper *calleeArgW, tree<InstructionWrapper*>::iterator callerTreeI);
-  int getCallParamIdx(const InstructionWrapper *instW, const InstructionWrapper *callInstW); //? Unused
-  ArgumentMatchType getArgMatchType(llvm::Argument *arg1, llvm::Argument *arg2); //? Unused
-  AccessType getAccessTypeForInstW(const InstructionWrapper *instW, ArgumentWrapper *argW);
+  void mergeArgAccessInfo(ArgumentWrapper *callerArgW,
+                          ArgumentWrapper *calleeArgW,
+                          tree<InstructionWrapper *>::iterator callerTreeI);
+  int getCallParamIdx(const InstructionWrapper *instW,
+                      const InstructionWrapper *callInstW);  //? Unused
+  ArgumentMatchType getArgMatchType(llvm::Argument *arg1,
+                                    llvm::Argument *arg2);  //? Unused
+  AccessType getAccessTypeForInstW(const InstructionWrapper *instW,
+                                   ArgumentWrapper *argW);
   void generateIDLforFunc(llvm::Function &F, bool root);
   void generateRpcForFunc(llvm::Function &F, bool root);
-  void generateIDLforArg(ArgumentWrapper *argW, TreeType ty, std::string funcName = "", bool handleFuncPtr = false);
-  std::vector<llvm::Function*> getTransitiveClosure(llvm::Function &F);
+  void generateIDLforArg(ArgumentWrapper *argW, TreeType ty,
+                         std::string funcName = "", bool handleFuncPtr = false);
+  std::vector<llvm::Function *> getTransitiveClosure(llvm::Function &F);
 
-private:
+ private:
   ProgramDependencyGraph *PDG;
   llvm::CallGraph *CG;
   std::ofstream edl_file;
   std::ofstream ecallWrapper_file;
-  std::set<std::string> deviceObjStore; // Unused
-  std::set<std::string> kernelObjStore; 
+  std::set<std::string> deviceObjStore;  // Unused
+  std::set<std::string> kernelObjStore;
   std::set<std::string> importedFuncList;
   std::set<std::string> kernelFuncList;
   std::set<std::string> definedFuncList;
@@ -55,11 +59,11 @@ private:
   std::set<std::string> processedFuncPtrNames;
   std::string curImportedTransFuncName;
   bool seenFuncOps;
-  bool crossBoundary; // indicate whether transitive closure cross two domains
+  bool crossBoundary;  // indicate whether transitive closure cross two domains
 };
 
 std::string getAccessAttributeName(tree<InstructionWrapper *>::iterator treeI);
 std::string getAccessAttributeName(unsigned accessIdx);
 
-} // namespace pdg
+}  // namespace pdg
 #endif

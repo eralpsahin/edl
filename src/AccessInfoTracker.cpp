@@ -1,4 +1,5 @@
 #include "AccessInfoTracker.hpp"
+
 #include <iostream>
 #include <sstream>
 
@@ -6,13 +7,13 @@ using namespace llvm;
 
 char pdg::AccessInfoTracker::ID = 0;
 
-void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
-  std::ifstream importedFuncs(prefix+"imported_func.txt");
-  std::ifstream definedFuncs(prefix+"defined_func.txt");
-  std::ifstream blackFuncs(prefix+"blacklist.txt");
-  std::ifstream static_funcptr(prefix+"static_funcptr.txt");
-  std::ifstream static_func(prefix+"static_func.txt");
-  std::ifstream lock_funcs(prefix+"lock_func.txt");
+void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
+  std::ifstream importedFuncs(prefix + "imported_func.txt");
+  std::ifstream definedFuncs(prefix + "defined_func.txt");
+  std::ifstream blackFuncs(prefix + "blacklist.txt");
+  std::ifstream static_funcptr(prefix + "static_funcptr.txt");
+  std::ifstream static_func(prefix + "static_func.txt");
+  std::ifstream lock_funcs(prefix + "lock_func.txt");
   // process global shared lock
   for (std::string line; std::getline(lock_funcs, line);)
     lockFuncList.insert(line);
@@ -33,16 +34,17 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   for (std::string line; std::getline(definedFuncs, line);)
     definedFuncList.insert(line);
 
-  // importedFuncList.insert(staticFuncptrList.begin(), staticFuncptrList.end());
+  // importedFuncList.insert(staticFuncptrList.begin(),
+  // staticFuncptrList.end());
   seenFuncOps = false;
   kernelFuncList = importedFuncList;
 
   auto &pdgUtils = PDGUtils::getInstance();
   PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
 
-  if (!USEDEBUGINFO)
-  {
-    errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
+  if (!USEDEBUGINFO) {
+    errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in "
+              "the pass to generate debug information\n";
     exit(0);
   }
 
@@ -58,35 +60,34 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   ecallWrapper_file.open("ecalls.cpp");
   ecallWrapper_file << "sgx_enclave_id_t global_eid = 0;\n";
 
-  for (auto funcName : importedFuncList)
-  {
+  for (auto funcName : importedFuncList) {
     crossBoundary = false;
     curImportedTransFuncName = funcName;
     auto func = M.getFunction(StringRef(funcName));
-    if (func->isDeclaration())
-      continue;
+    if (func->isDeclaration()) continue;
     auto transClosure = getTransitiveClosure(*func);
-    for (std::string staticFuncName : staticFuncList)
-    {
-      Function* staticFunc = M.getFunction(StringRef(staticFuncName));
+    for (std::string staticFuncName : staticFuncList) {
+      Function *staticFunc = M.getFunction(StringRef(staticFuncName));
       if (staticFunc && !staticFunc->isDeclaration())
         transClosure.push_back(staticFunc);
     }
-    for (auto iter = transClosure.rbegin(); iter != transClosure.rend(); iter++)
-    {
+    for (auto iter = transClosure.rbegin(); iter != transClosure.rend();
+         iter++) {
       auto transFunc = *iter;
-      if (transFunc->isDeclaration())
-        continue; 
-      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end())
+      if (transFunc->isDeclaration()) continue;
+      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() ||
+          staticFuncList.find(transFunc->getName()) != staticFuncList.end())
         crossBoundary = true;
       getIntraFuncReadWriteInfoForFunc(*transFunc);
       getInterFuncReadWriteInfo(*transFunc);
     }
     writeECALLWrapper(*func);
-    if (std::find(mainClosure.begin(), mainClosure.end(), func) != mainClosure.end()) // This function is in main Funcs closure
-      generateIDLforFunc(*func, true); // It is possibly a root ECALL
-    else generateIDLforFunc(*func, false);
-    edl_file <<";\n\n";
+    if (std::find(mainClosure.begin(), mainClosure.end(), func) !=
+        mainClosure.end())  // This function is in main Funcs closure
+      generateIDLforFunc(*func, true);  // It is possibly a root ECALL
+    else
+      generateIDLforFunc(*func, false);
+    edl_file << ";\n\n";
   }
 
   edl_file << "\t};\n";
@@ -102,12 +103,12 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
 }
 
 void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
-  std::ifstream importedFuncs(prefix+ "imported_func.txt");
-  std::ifstream definedFuncs(prefix+"defined_func.txt");
-  std::ifstream blackFuncs(prefix+"blacklist.txt");
-  std::ifstream static_funcptr(prefix+"static_funcptr.txt");
-  std::ifstream static_func(prefix+"static_func.txt");
-  std::ifstream lock_funcs(prefix+"lock_func.txt");
+  std::ifstream importedFuncs(prefix + "imported_func.txt");
+  std::ifstream definedFuncs(prefix + "defined_func.txt");
+  std::ifstream blackFuncs(prefix + "blacklist.txt");
+  std::ifstream static_funcptr(prefix + "static_funcptr.txt");
+  std::ifstream static_func(prefix + "static_func.txt");
+  std::ifstream lock_funcs(prefix + "lock_func.txt");
   // process global shared lock
   for (std::string line; std::getline(lock_funcs, line);)
     lockFuncList.insert(line);
@@ -128,15 +129,16 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   for (std::string line; std::getline(definedFuncs, line);)
     definedFuncList.insert(line);
 
-  // importedFuncList.insert(staticFuncptrList.begin(), staticFuncptrList.end());
+  // importedFuncList.insert(staticFuncptrList.begin(),
+  // staticFuncptrList.end());
   seenFuncOps = false;
   kernelFuncList = importedFuncList;
 
   auto &pdgUtils = PDGUtils::getInstance();
   PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
-  if (!USEDEBUGINFO)
-  {
-    errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in the pass to generate debug information\n";
+  if (!USEDEBUGINFO) {
+    errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in "
+              "the pass to generate debug information\n";
     exit(0);
   }
 
@@ -144,33 +146,31 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
   std::string file_name = "enclave";
   file_name += ".edl";
-  edl_file.open(file_name, std::fstream::in | std::fstream::out | std::fstream::app);
+  edl_file.open(file_name,
+                std::fstream::in | std::fstream::out | std::fstream::app);
   edl_file << "\n\tuntrusted {\n";
 
-  for (auto funcName : importedFuncList)
-  {
+  for (auto funcName : importedFuncList) {
     crossBoundary = false;
     curImportedTransFuncName = funcName;
     auto func = M.getFunction(StringRef(funcName));
-    if (func->isDeclaration())
-      continue;
+    if (func->isDeclaration()) continue;
     auto transClosure = getTransitiveClosure(*func);
-    for (std::string staticFuncName : staticFuncList)
-    {
-      Function* staticFunc = M.getFunction(StringRef(staticFuncName));
+    for (std::string staticFuncName : staticFuncList) {
+      Function *staticFunc = M.getFunction(StringRef(staticFuncName));
       if (staticFunc && !staticFunc->isDeclaration())
         transClosure.push_back(staticFunc);
     }
     // Start populating stringstream for allow() syntax of OCALL
     std::ostringstream allow;
     allow << "allow(";
-    for (auto iter = transClosure.rbegin(); iter != transClosure.rend(); iter++)
-    {
+    for (auto iter = transClosure.rbegin(); iter != transClosure.rend();
+         iter++) {
       auto transFunc = *iter;
-      if (transFunc->isDeclaration())
-        continue;
-      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end()) {
-        if (allow.str().length() > 6)  allow << ", ";
+      if (transFunc->isDeclaration()) continue;
+      if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() ||
+          staticFuncList.find(transFunc->getName()) != staticFuncList.end()) {
+        if (allow.str().length() > 6) allow << ", ";
         allow << transFunc->getName().str();
         crossBoundary = true;
       }
@@ -181,8 +181,9 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
     generateIDLforFunc(*func, false);
     // Write the allow syntax if there is an ECALL in this OCALL
     if (allow.str().length() > 8)
-      edl_file << allow.str() <<"\n\n";
-    else edl_file << ";\n\n";
+      edl_file << allow.str() << "\n\n";
+    else
+      edl_file << ";\n\n";
   }
 
   edl_file << "\t};\n\n};";
@@ -195,12 +196,10 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   lock_funcs.close();
 }
 
-bool pdg::AccessInfoTracker::runOnModule(Module &M)
-{
+bool pdg::AccessInfoTracker::runOnModule(Module &M) {
   // Populate function name sets for [string, size, count] attributes
   Heuristics::populateStringFuncs();
   Heuristics::populateMemFuncs();
-
 
   std::string enclaveFile = "Enclave.edl";
   edl_file.open(enclaveFile);
@@ -226,7 +225,8 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   std::stringstream buffer;
   buffer << temp.rdbuf();
   edl_file.open(enclaveFile);
-  edl_file << "enclave" << " {\n\n";
+  edl_file << "enclave"
+           << " {\n\n";
 
   for (auto el : userDefinedTypes) {
     edl_file << el.second;
@@ -290,42 +290,34 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
   ecallWrapper_file << "}\n";
 }
 
-void pdg::AccessInfoTracker::getAnalysisUsage(AnalysisUsage &AU) const
-{
+void pdg::AccessInfoTracker::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<pdg::ProgramDependencyGraph>();
   AU.addRequired<CallGraphWrapperPass>();
   AU.setPreservesAll();
 }
 
-std::vector<Function *> pdg::AccessInfoTracker::getTransitiveClosure(Function &F)
-{
-  std::vector<Function*> transClosure;
+std::vector<Function *> pdg::AccessInfoTracker::getTransitiveClosure(
+    Function &F) {
+  std::vector<Function *> transClosure;
   transClosure.push_back(&F);
-  std::queue<CallGraphNode*> funcNodeQ;
-  std::set<Function*> seen;
+  std::queue<CallGraphNode *> funcNodeQ;
+  std::set<Function *> seen;
   funcNodeQ.push(CG->getOrInsertFunction(&F));
-  while (!funcNodeQ.empty())
-  {
-    if (transClosure.size() > 100) 
-      return transClosure; 
+  while (!funcNodeQ.empty()) {
+    if (transClosure.size() > 100) return transClosure;
 
     auto callNode = funcNodeQ.front();
     funcNodeQ.pop();
-    if (!callNode)
-      continue;
+    if (!callNode) continue;
 
-    for (auto calleeNodeI = callNode->begin(); calleeNodeI != callNode->end(); calleeNodeI++)
-    {
-      if (!calleeNodeI->second->getFunction())
-        continue;
+    for (auto calleeNodeI = callNode->begin(); calleeNodeI != callNode->end();
+         calleeNodeI++) {
+      if (!calleeNodeI->second->getFunction()) continue;
       auto funcName = calleeNodeI->second->getFunction()->getName();
-      if (blackFuncList.find(funcName) != blackFuncList.end())
-        continue;
+      if (blackFuncList.find(funcName) != blackFuncList.end()) continue;
       Function *calleeFunc = calleeNodeI->second->getFunction();
-      if (calleeFunc->isDeclaration())
-        continue;
-      if (seen.find(calleeFunc) != seen.end())
-        continue;
+      if (calleeFunc->isDeclaration()) continue;
+      if (seen.find(calleeFunc) != seen.end()) continue;
       funcNodeQ.push(calleeNodeI->second);
       transClosure.push_back(calleeFunc);
       seen.insert(calleeFunc);
@@ -370,7 +362,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
       std::string funcName;
       if (callInst->getCalledFunction()) {
         funcName = callInst->getCalledFunction()->getName().str();
-      } else { // continue if function is inaccessible
+      } else {  // continue if function is inaccessible
         continue;
       }
       int argNum = -1;
@@ -383,7 +375,8 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
         }
         curr += 1;
       }
-      assert(argNum != -1 && "argument is not found in the callInst's arguments");
+      assert(argNum != -1 &&
+             "argument is not found in the callInst's arguments");
       if (DIUtils::isCharPointerTy(*argW->getArg())) {
         // if (funcName == "match_one") {
         //   errs() << pdgUtils.getFuncMap()[callInst->getCalledFunction()]
@@ -391,8 +384,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
         //   getIntraFuncReadWriteInfoForFunc(*callInst->getCalledFunction());
         //   generateRpcForFunc(*callInst->getCalledFunction(), false);
         // }
-            Heuristics::
-                   addStringAttribute(funcName, argNum, argW);
+        Heuristics::addStringAttribute(funcName, argNum, argW);
       }
       if (DIUtils::isVoidPointerTy(*argW->getArg()))
         Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
@@ -401,20 +393,20 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
   return accessType;
 }
 
-void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *argW, TreeType treeTy)
-{
+void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(
+    ArgumentWrapper *argW, TreeType treeTy) {
   auto argTree = argW->getTree(treeTy);
-  if (argTree.size() == 0)
-    return;
-  // throw new ArgParameterTreeSizeIsZero("Argment tree is empty... Every param should have at least one node...\n");
+  if (argTree.size() == 0) return;
+  // throw new ArgParameterTreeSizeIsZero("Argment tree is empty... Every param
+  // should have at least one node...\n");
 
   auto func = argW->getArg()->getParent();
   auto treeI = argW->getTree(treeTy).begin();
   // if (!(*treeI)->getTreeNodeType()->isPointerTy())
 
-  if ((*treeI)->getDIType() == nullptr)
-  {
-    errs() << "Empty debugging info for " << func->getName() << " - " << argW->getArg()->getArgNo() << "\n";
+  if ((*treeI)->getDIType() == nullptr) {
+    errs() << "Empty debugging info for " << func->getName() << " - "
+           << argW->getArg()->getArgNo() << "\n";
     return;
   }
   if ((*treeI)->getDIType()->getTag() != dwarf::DW_TAG_pointer_type &&
@@ -434,43 +426,42 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
       argW->getAttribute().setReadOnly();
     }
   }
-  for (auto treeI = argW->tree_begin(TreeType::FORMAL_IN_TREE); treeI != argW->tree_end(TreeType::FORMAL_IN_TREE); ++treeI)
-  {
+  for (auto treeI = argW->tree_begin(TreeType::FORMAL_IN_TREE);
+       treeI != argW->tree_end(TreeType::FORMAL_IN_TREE); ++treeI) {
     count += 1;
-      auto valDepPairList =
-          PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
-      for (auto valDepPair : valDepPairList) {
-        auto dataW = valDepPair.first->getData();
-        AccessType accType = getAccessTypeForInstW(dataW, argW);
-        if (static_cast<int>(accType) >
-            static_cast<int>((*treeI)->getAccessType())) {
-          auto &dbgInstList =
-              pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
-          std::string argName =
-              DIUtils::getArgName(*(argW->getArg()), dbgInstList);
+    auto valDepPairList =
+        PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
+    for (auto valDepPair : valDepPairList) {
+      auto dataW = valDepPair.first->getData();
+      AccessType accType = getAccessTypeForInstW(dataW, argW);
+      if (static_cast<int>(accType) >
+          static_cast<int>((*treeI)->getAccessType())) {
+        auto &dbgInstList =
+            pdgUtils.getFuncMap()[func]->getDbgDeclareInstList();
+        std::string argName =
+            DIUtils::getArgName(*(argW->getArg()), dbgInstList);
 
-          if (accType == AccessType::WRITE) {
-            argW->getAttribute().setOut();
-          }
-          if (count == 1 && accType == AccessType::READ) {
-            argW->getAttribute().setIn();
-          }
-          // errs() << argName << " n" << count << "-"
-          //        << getAccessAttributeName(treeI) << " => "
-          //        << getAccessAttributeName((unsigned)accType) << "\n";
-
-          (*treeI)->setAccessType(accType);
+        if (accType == AccessType::WRITE) {
+          argW->getAttribute().setOut();
         }
+        if (count == 1 && accType == AccessType::READ) {
+          argW->getAttribute().setIn();
+        }
+        // errs() << argName << " n" << count << "-"
+        //        << getAccessAttributeName(treeI) << " => "
+        //        << getAccessAttributeName((unsigned)accType) << "\n";
+
+        (*treeI)->setAccessType(accType);
       }
+    }
   }
 }
 
-void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForFunc(Function &F)
-{
+void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForFunc(Function &F) {
   auto &pdgUtils = PDGUtils::getInstance();
   FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
   // for arguments
-  if (!pdgUtils.getFuncMap()[&F]->hasTrees()) { 
+  if (!pdgUtils.getFuncMap()[&F]->hasTrees()) {
     PDG->buildPDGForFunc(&F);
   }
   for (auto argW : funcW->getArgWList())
@@ -481,55 +472,48 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForFunc(Function &F)
   getIntraFuncReadWriteInfoForArg(retW, TreeType::FORMAL_IN_TREE);
 }
 
-pdg::ArgumentMatchType pdg::AccessInfoTracker::getArgMatchType(Argument *arg1, Argument *arg2)
-{
+pdg::ArgumentMatchType pdg::AccessInfoTracker::getArgMatchType(Argument *arg1,
+                                                               Argument *arg2) {
   Type *arg1_type = arg1->getType();
   Type *arg2_type = arg2->getType();
 
-  if (arg1_type == arg2_type)
-    return pdg::ArgumentMatchType::EQUAL;
+  if (arg1_type == arg2_type) return pdg::ArgumentMatchType::EQUAL;
 
   if (arg1_type->isPointerTy())
     arg1_type = (dyn_cast<PointerType>(arg1_type))->getElementType();
 
-  if (arg1_type->isStructTy())
-  {
+  if (arg1_type->isStructTy()) {
     StructType *arg1_st_type = dyn_cast<StructType>(arg1_type);
-    for (unsigned i = 0; i < arg1_st_type->getNumElements(); ++i)
-    {
+    for (unsigned i = 0; i < arg1_st_type->getNumElements(); ++i) {
       Type *arg1_element_type = arg1_st_type->getElementType(i);
       bool type_match = (arg1_element_type == arg2_type);
 
-      if (arg2_type->isPointerTy())
-      {
-        bool pointed_type_match = ((dyn_cast<PointerType>(arg2_type))->getElementType() == arg1_element_type);
+      if (arg2_type->isPointerTy()) {
+        bool pointed_type_match =
+            ((dyn_cast<PointerType>(arg2_type))->getElementType() ==
+             arg1_element_type);
         type_match = type_match || pointed_type_match;
       }
 
-      if (type_match)
-        return pdg::ArgumentMatchType::CONTAINED;
+      if (type_match) return pdg::ArgumentMatchType::CONTAINED;
     }
   }
 
   return pdg::ArgumentMatchType::NOTCONTAINED;
 }
 
-int pdg::AccessInfoTracker::getCallParamIdx(const InstructionWrapper *instW, const InstructionWrapper *callInstW)
-{
+int pdg::AccessInfoTracker::getCallParamIdx(
+    const InstructionWrapper *instW, const InstructionWrapper *callInstW) {
   Instruction *inst = instW->getInstruction();
   Instruction *callInst = callInstW->getInstruction();
-  if (inst == nullptr || callInst == nullptr)
-    return -1;
+  if (inst == nullptr || callInst == nullptr) return -1;
 
-  if (CallInst *CI = dyn_cast<CallInst>(callInst))
-  {
+  if (CallInst *CI = dyn_cast<CallInst>(callInst)) {
     int paraIdx = 0;
-    for (auto arg_iter = CI->arg_begin(); arg_iter != CI->arg_end(); ++arg_iter)
-    {
-      if (Instruction *tmpInst = dyn_cast<Instruction>(&*arg_iter))
-      {
-        if (tmpInst == inst)
-          return paraIdx;
+    for (auto arg_iter = CI->arg_begin(); arg_iter != CI->arg_end();
+         ++arg_iter) {
+      if (Instruction *tmpInst = dyn_cast<Instruction>(&*arg_iter)) {
+        if (tmpInst == inst) return paraIdx;
       }
       paraIdx++;
     }
@@ -540,7 +524,8 @@ int pdg::AccessInfoTracker::getCallParamIdx(const InstructionWrapper *instW, con
 void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root) {
   auto &pdgUtils = PDGUtils::getInstance();
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
-  if (DIUtils::isStructPointerTy(funcRetType) || DIUtils::isStructTy(funcRetType)) {
+  if (DIUtils::isStructPointerTy(funcRetType) ||
+      DIUtils::isStructTy(funcRetType)) {
     DIUtils::insertStructDefinition(funcRetType, userDefinedTypes);
   } else if (DIUtils::isEnumTy(funcRetType)) {
     DIUtils::insertEnumDefinition(funcRetType, userDefinedTypes);
@@ -558,18 +543,18 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root) {
   if (root) edl_file << "public ";
   edl_file << retTypeName << " " << F.getName().str() << "( ";
   // handle parameters
-  for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList())
-  {
+  for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
     Argument &arg = *argW->getArg();
     Type *argType = arg.getType();
     auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (argType->getTypeID() == 15 &&
-        !(DIUtils::isUnionTy(DIUtils::getArgDIType(arg)))) // Reject non pointer unions explicitly
-      edl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+        !(DIUtils::isUnionTy(DIUtils::getArgDIType(
+            arg))))  // Reject non pointer unions explicitly
+      edl_file << argW->getAttribute().dump() << " "
+               << DIUtils::getArgTypeName(arg) << " " << argName;
     else
       edl_file << DIUtils::getArgTypeName(arg) << " " << argName;
-    
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty())
       edl_file << ", ";
@@ -578,28 +563,30 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root) {
 }
 
 void pdg::AccessInfoTracker::generateIDLforFunc(Function &F, bool root) {
-  // if a function is defined on the same side, no need to generate IDL rpc for this function.
+  // if a function is defined on the same side, no need to generate IDL rpc for
+  // this function.
   auto &pdgUtils = PDGUtils::getInstance();
   FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
-  for (auto argW : funcW->getArgWList())
-  {
+  for (auto argW : funcW->getArgWList()) {
     generateIDLforArg(argW, TreeType::FORMAL_IN_TREE);
   }
   generateIDLforArg(funcW->getRetW(), TreeType::FORMAL_IN_TREE);
   generateRpcForFunc(F, root);
 }
 
-void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType treeTy, std::string funcName, bool handleFuncPtr) {
+void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW,
+                                               TreeType treeTy,
+                                               std::string funcName,
+                                               bool handleFuncPtr) {
   auto &pdgUtils = PDGUtils::getInstance();
-  if (argW->getTree(TreeType::FORMAL_IN_TREE).size() == 0 || argW->getArg()->getArgNo() == 100) // No need to handle return args
+  if (argW->getTree(TreeType::FORMAL_IN_TREE).size() == 0 ||
+      argW->getArg()->getArgNo() == 100)  // No need to handle return args
     return;
 
   Function &F = *argW->getArg()->getParent();
   auto check = argW->tree_begin(treeTy);
-  
-  if (funcName.empty())
-    funcName = F.getName().str();
-  
+
+  if (funcName.empty()) funcName = F.getName().str();
 
   auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
@@ -622,9 +609,8 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   // TODO: Handle include statements
   DIFile *file = curDIType->getFile();
   if (file != nullptr)
-          edl_file
-      << "\t\tinclude \"" << file->getFilename().str()
-      << "\" // For param: " << argName << "\n\n ";
+    edl_file << "\t\tinclude \"" << file->getFilename().str()
+             << "\" // For param: " << argName << "\n\n ";
 }
 
 void pdg::AccessInfoTracker::mergeArgAccessInfo(
@@ -724,18 +710,16 @@ bool pdg::AccessInfoTracker::getInterFuncReadWriteInfo(Function &F) {
   return reachFixPoint;
 }
 
-std::string pdg::getAccessAttributeName(tree<InstructionWrapper *>::iterator treeI) {
+std::string pdg::getAccessAttributeName(
+    tree<InstructionWrapper *>::iterator treeI) {
   int accessIdx = static_cast<int>((*treeI)->getAccessType());
   return getAccessAttributeName(accessIdx);
 }
 
 std::string pdg::getAccessAttributeName(unsigned accessIdx) {
-  std::vector<std::string> access_attribute = {
-      "[-]",
-      "[in]",
-      "[out]"};
+  std::vector<std::string> access_attribute = {"[-]", "[in]", "[out]"};
   return access_attribute[accessIdx];
 }
 
-static RegisterPass<pdg::AccessInfoTracker>
-    AccessInfoTracker("accinfo-track", "Argument access information tracking Pass", false, true);
+static RegisterPass<pdg::AccessInfoTracker> AccessInfoTracker(
+    "accinfo-track", "Argument access information tracking Pass", false, true);
