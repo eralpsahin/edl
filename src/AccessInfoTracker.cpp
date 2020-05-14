@@ -7,49 +7,58 @@ using namespace llvm;
 
 char pdg::AccessInfoTracker::ID = 0;
 
-void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
-  std::ifstream importedFuncs(prefix + "imported_func.txt");
-  std::ifstream definedFuncs(prefix + "defined_func.txt");
-  std::ifstream blackFuncs(prefix + "blacklist.txt");
-  std::ifstream static_funcptr(prefix + "static_funcptr.txt");
-  std::ifstream static_func(prefix + "static_func.txt");
-  std::ifstream lock_funcs(prefix + "lock_func.txt");
-  // process global shared lock
-  for (std::string line; std::getline(lock_funcs, line);)
-    lockFuncList.insert(line);
-  for (std::string line; std::getline(blackFuncs, line);)
-    blackFuncList.insert(line);
-  for (std::string staticFuncLine, funcPtrLine;
-       std::getline(static_func, staticFuncLine),
-       std::getline(static_funcptr, funcPtrLine);) {
-    staticFuncList.insert(staticFuncLine);
-    staticFuncptrList.insert(funcPtrLine);
-    driverFuncPtrCallTargetMap[funcPtrLine] =
-        staticFuncLine;  // map each function ptr name with corresponding
-                         // defined func in isolated device
-  }
-  for (std::string line; std::getline(importedFuncs, line);)
-    if (blackFuncList.find(line) == blackFuncList.end())
-      importedFuncList.insert(line);
-  for (std::string line; std::getline(definedFuncs, line);)
-    definedFuncList.insert(line);
-
-  // importedFuncList.insert(staticFuncptrList.begin(),
-  // staticFuncptrList.end());
-  seenFuncOps = false;
-  kernelFuncList = importedFuncList;
-
-  auto &pdgUtils = PDGUtils::getInstance();
-  PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
-
+bool pdg::AccessInfoTracker::runOnModule(Module &M) {
   if (!USEDEBUGINFO) {
     errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in "
               "the pass to generate debug information\n";
     exit(0);
   }
 
+  auto &pdgUtils = PDGUtils::getInstance();
+  PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
   CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
 
+  // Populate function name sets for [string, size, count] attributes
+  Heuristics::populateStringFuncs();
+  Heuristics::populateMemFuncs();
+
+  std::string enclaveFile = "Enclave.edl";
+  edl_file.open(enclaveFile);
+
+  // Read the untrusted domain information to create trusted side and wrappers
+  createTrusted(UPREFIX, M);
+
+  // Clear function lists
+  lockFuncList.clear();
+  blackFuncList.clear();
+  staticFuncList.clear();
+  importedFuncList.clear();
+  definedFuncList.clear();
+  kernelFuncList.clear();
+
+  // Read the trusted domain information to create untrusted side
+  createUntrusted(TPREFIX, M);
+
+  edl_file.close();
+
+  std::ifstream temp(enclaveFile);
+  std::stringstream buffer;
+  buffer << temp.rdbuf();
+  edl_file.open(enclaveFile);
+  edl_file << "enclave"
+           << " {\n\n";
+
+  for (auto el : userDefinedTypes) {
+    edl_file << el.second;
+  }
+  edl_file << buffer.str();
+
+  edl_file.close();
+  return false;
+}
+
+void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
+  populateLists(prefix);
   // Get the main Functions closure for root ECALLs
   auto main = M.getFunction(StringRef("main"));
   auto mainClosure = getTransitiveClosure(*main);
@@ -79,7 +88,6 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
           staticFuncList.find(transFunc->getName()) != staticFuncList.end())
         crossBoundary = true;
       getIntraFuncReadWriteInfoForFunc(*transFunc);
-      getInterFuncReadWriteInfo(*transFunc);
     }
     writeECALLWrapper(*func);
     if (std::find(mainClosure.begin(), mainClosure.end(), func) !=
@@ -92,62 +100,10 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
 
   edl_file << "\t};\n";
   ecallWrapper_file.close();
-
-  edl_file.close();
-  importedFuncs.close();
-  definedFuncs.close();
-  blackFuncs.close();
-  static_funcptr.close();
-  static_func.close();
-  lock_funcs.close();
 }
 
 void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
-  std::ifstream importedFuncs(prefix + "imported_func.txt");
-  std::ifstream definedFuncs(prefix + "defined_func.txt");
-  std::ifstream blackFuncs(prefix + "blacklist.txt");
-  std::ifstream static_funcptr(prefix + "static_funcptr.txt");
-  std::ifstream static_func(prefix + "static_func.txt");
-  std::ifstream lock_funcs(prefix + "lock_func.txt");
-  // process global shared lock
-  for (std::string line; std::getline(lock_funcs, line);)
-    lockFuncList.insert(line);
-  for (std::string line; std::getline(blackFuncs, line);)
-    blackFuncList.insert(line);
-  for (std::string staticFuncLine, funcPtrLine;
-       std::getline(static_func, staticFuncLine),
-       std::getline(static_funcptr, funcPtrLine);) {
-    staticFuncList.insert(staticFuncLine);
-    staticFuncptrList.insert(funcPtrLine);
-    driverFuncPtrCallTargetMap[funcPtrLine] =
-        staticFuncLine;  // map each function ptr name with corresponding
-                         // defined func in isolated device
-  }
-  for (std::string line; std::getline(importedFuncs, line);)
-    if (blackFuncList.find(line) == blackFuncList.end())
-      importedFuncList.insert(line);
-  for (std::string line; std::getline(definedFuncs, line);)
-    definedFuncList.insert(line);
-
-  // importedFuncList.insert(staticFuncptrList.begin(),
-  // staticFuncptrList.end());
-  seenFuncOps = false;
-  kernelFuncList = importedFuncList;
-
-  auto &pdgUtils = PDGUtils::getInstance();
-  PDG = &getAnalysis<pdg::ProgramDependencyGraph>();
-  if (!USEDEBUGINFO) {
-    errs() << "[WARNING] No debug information avaliable... \nUse [-debug 1] in "
-              "the pass to generate debug information\n";
-    exit(0);
-  }
-
-  CG = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
-
-  std::string file_name = "enclave";
-  file_name += ".edl";
-  edl_file.open(file_name,
-                std::fstream::in | std::fstream::out | std::fstream::app);
+  populateLists(prefix);
   edl_file << "\n\tuntrusted {\n";
 
   for (auto funcName : importedFuncList) {
@@ -175,7 +131,6 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
         crossBoundary = true;
       }
       getIntraFuncReadWriteInfoForFunc(*transFunc);
-      getInterFuncReadWriteInfo(*transFunc);
     }
     allow << ");";
     generateIDLforFunc(*func, false);
@@ -187,54 +142,6 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   }
 
   edl_file << "\t};\n\n};";
-
-  importedFuncs.close();
-  definedFuncs.close();
-  blackFuncs.close();
-  static_funcptr.close();
-  static_func.close();
-  lock_funcs.close();
-}
-
-bool pdg::AccessInfoTracker::runOnModule(Module &M) {
-  // Populate function name sets for [string, size, count] attributes
-  Heuristics::populateStringFuncs();
-  Heuristics::populateMemFuncs();
-
-  std::string enclaveFile = "Enclave.edl";
-  edl_file.open(enclaveFile);
-
-  // Read the untrusted domain information to create trusted side and wrappers
-  createTrusted(UPREFIX, M);
-
-  // Clear function lists
-  lockFuncList.clear();
-  blackFuncList.clear();
-  staticFuncList.clear();
-  importedFuncList.clear();
-  definedFuncList.clear();
-  kernelFuncList.clear();
-  driverFuncPtrCallTargetMap.clear();
-
-  // Read the trusted domain information to create untrusted side
-  createUntrusted(TPREFIX, M);
-
-  edl_file.close();
-
-  std::ifstream temp(enclaveFile);
-  std::stringstream buffer;
-  buffer << temp.rdbuf();
-  edl_file.open(enclaveFile);
-  edl_file << "enclave"
-           << " {\n\n";
-
-  for (auto el : userDefinedTypes) {
-    edl_file << el.second;
-  }
-  edl_file << buffer.str();
-
-  edl_file.close();
-  return false;
 }
 
 void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
@@ -288,6 +195,43 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
     ecallWrapper_file << "\treturn res;\n";
   }
   ecallWrapper_file << "}\n";
+}
+
+void pdg::AccessInfoTracker::populateLists(std::string prefix) {
+  std::ifstream importedFuncs(prefix + "imported_func.txt");
+  std::ifstream definedFuncs(prefix + "defined_func.txt");
+  std::ifstream blackFuncs(prefix + "blacklist.txt");
+  std::ifstream static_funcptr(prefix + "static_funcptr.txt");
+  std::ifstream static_func(prefix + "static_func.txt");
+  std::ifstream lock_funcs(prefix + "lock_func.txt");
+  // process global shared lock
+  for (std::string line; std::getline(lock_funcs, line);)
+    lockFuncList.insert(line);
+  for (std::string line; std::getline(blackFuncs, line);)
+    blackFuncList.insert(line);
+  for (std::string staticFuncLine, funcPtrLine;
+       std::getline(static_func, staticFuncLine),
+       std::getline(static_funcptr, funcPtrLine);) {
+    staticFuncList.insert(staticFuncLine);
+    staticFuncptrList.insert(funcPtrLine);
+  }
+  for (std::string line; std::getline(importedFuncs, line);)
+    if (blackFuncList.find(line) == blackFuncList.end())
+      importedFuncList.insert(line);
+  for (std::string line; std::getline(definedFuncs, line);)
+    definedFuncList.insert(line);
+
+  // importedFuncList.insert(staticFuncptrList.begin(),
+  // staticFuncptrList.end());
+  seenFuncOps = false;
+  kernelFuncList = importedFuncList;
+
+  importedFuncs.close();
+  definedFuncs.close();
+  blackFuncs.close();
+  static_funcptr.close();
+  static_func.close();
+  lock_funcs.close();
 }
 
 void pdg::AccessInfoTracker::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -611,103 +555,6 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW,
   if (file != nullptr)
     edl_file << "\t\tinclude \"" << file->getFilename().str()
              << "\" // For param: " << argName << "\n\n ";
-}
-
-void pdg::AccessInfoTracker::mergeArgAccessInfo(
-    ArgumentWrapper *callerArgW, ArgumentWrapper *calleeArgW,
-    tree<InstructionWrapper *>::iterator callerTreeI) {
-  if (callerArgW == nullptr || calleeArgW == nullptr) return;
-  auto callerFunc = callerArgW->getArg()->getParent();
-  auto calleeFunc = calleeArgW->getArg()->getParent();
-  if (callerFunc == nullptr || calleeFunc == nullptr) return;
-
-  unsigned callerParamTreeSize =
-      callerArgW->getTree(TreeType::FORMAL_IN_TREE).size(callerTreeI);
-  unsigned calleeParamTreeSize =
-      calleeArgW->getTree(TreeType::FORMAL_IN_TREE).size();
-
-  if (callerParamTreeSize != calleeParamTreeSize) return;
-
-  auto calleeTreeI = calleeArgW->tree_begin(TreeType::FORMAL_IN_TREE);
-  for (; callerTreeI != callerArgW->tree_end(TreeType::FORMAL_IN_TREE) &&
-         calleeTreeI != calleeArgW->tree_end(TreeType::FORMAL_IN_TREE);
-       ++callerTreeI, ++calleeTreeI) {
-    if (callerTreeI == 0 || calleeTreeI == 0) return;
-    if (static_cast<int>((*callerTreeI)->getAccessType()) <
-        static_cast<int>((*calleeTreeI)->getAccessType())) {
-      (*callerTreeI)->setAccessType((*calleeTreeI)->getAccessType());
-    }
-  }
-}
-
-bool pdg::AccessInfoTracker::getInterFuncReadWriteInfo(Function &F) {
-  auto &pdgUtils = PDGUtils::getInstance();
-  bool reachFixPoint = true;
-
-  if (pdgUtils.getFuncMap()[&F] == nullptr) return true;
-
-  for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
-    if (!PDG->isStructPointer(argW->getArg()->getType())) continue;
-
-    for (auto treeI = argW->tree_begin(TreeType::FORMAL_IN_TREE);
-         treeI != argW->tree_end(TreeType::FORMAL_IN_TREE); ++treeI) {
-      // find related instruction nodes
-      auto treeNodeDepVals =
-          PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
-      // for each dependency value, check whether it is passed through function
-      // call
-      for (auto pair : treeNodeDepVals) {
-        auto depInstW = pair.first->getData();
-        auto depCallInsts =
-            PDG->getNodesWithDepType(depInstW, DependencyType::DATA_CALL_PARA);
-        // find instructions uses the dep value
-        for (auto depCallPair : depCallInsts) {
-          auto depCallInstW = depCallPair.first->getData();
-          int paraIdx = getCallParamIdx(depInstW, depCallInstW);
-          auto callInst = dyn_cast<CallInst>(depCallInstW->getInstruction());
-          if (PDG->isIndirectCallOrInlineAsm(callInst)) {
-            if (callInst->isInlineAsm()) continue;
-            // indirect call
-            auto indirect_call_candidates = PDG->collectIndirectCallCandidates(
-                callInst->getFunctionType(), F, definedFuncList);
-            for (auto indirect_call : indirect_call_candidates) {
-              if (indirect_call == nullptr) continue;
-              if (pdgUtils.getFuncMap().find(indirect_call) ==
-                  pdgUtils.getFuncMap().end())
-                continue;
-              auto calleeFuncW = pdgUtils.getFuncMap()[indirect_call];
-              auto calleeArgW = calleeFuncW->getArgWByIdx(paraIdx);
-              if (!calleeFuncW->hasTrees()) continue;
-
-              mergeArgAccessInfo(argW, calleeArgW,
-                                 tree<InstructionWrapper *>::parent(treeI));
-              // importedFuncList.insert(indirect_call->getName().str()); // put
-              // new discovered function into imported list for analysis
-              reachFixPoint = false;
-            }
-          } else {
-            auto f = callInst->getCalledFunction();
-            if (f == nullptr)
-              f = dyn_cast<Function>(
-                  callInst->getCalledValue()->stripPointerCasts());
-            if (f == nullptr) continue;
-            if (f->isDeclaration() ||
-                pdgUtils.getFuncMap().find(f) == pdgUtils.getFuncMap().end())
-              continue;
-            if (f->isVarArg()) continue;  // do not handle arity function
-
-            FunctionWrapper *calleeFuncW = pdgUtils.getFuncMap()[f];
-            ArgumentWrapper *calleeArgW = calleeFuncW->getArgWByIdx(paraIdx);
-            if (!calleeFuncW->hasTrees()) continue;
-
-            mergeArgAccessInfo(argW, calleeArgW,
-                               tree<InstructionWrapper *>::parent(treeI));
-          }
-        }
-      }
-    }
-  }
-  return reachFixPoint;
 }
 
 std::string pdg::getAccessAttributeName(

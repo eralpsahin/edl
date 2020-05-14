@@ -21,13 +21,10 @@ class AccessInfoTracker : public llvm::ModulePass {
   void createTrusted(std::string prefix, llvm::Module &M);
   void createUntrusted(std::string prefix, llvm::Module &M);
   void writeECALLWrapper(llvm::Function &F);
+  void populateLists(std::string prefix);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForArg(ArgumentWrapper *argW, TreeType treeTy);
   void getIntraFuncReadWriteInfoForFunc(llvm::Function &F);
-  bool getInterFuncReadWriteInfo(llvm::Function &F);
-  void mergeArgAccessInfo(ArgumentWrapper *callerArgW,
-                          ArgumentWrapper *calleeArgW,
-                          tree<InstructionWrapper *>::iterator callerTreeI);
   int getCallParamIdx(const InstructionWrapper *instW,
                       const InstructionWrapper *callInstW);  //? Unused
   ArgumentMatchType getArgMatchType(llvm::Argument *arg1,
@@ -54,7 +51,6 @@ class AccessInfoTracker : public llvm::ModulePass {
   std::set<std::string> staticFuncptrList;
   std::set<std::string> staticFuncList;
   std::set<std::string> lockFuncList;
-  std::map<std::string, std::string> driverFuncPtrCallTargetMap;
   std::map<std::string, std::string> userDefinedTypes;
   std::set<std::string> processedFuncPtrNames;
   std::string curImportedTransFuncName;
