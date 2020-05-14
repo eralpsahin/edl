@@ -18,6 +18,7 @@ pdg::FunctionWrapper::FunctionWrapper(Function *Func)
   const Twine t = "";
   Argument *ret = new Argument(Func->getReturnType(), t, Func, 100);
   this->retW = new ArgumentWrapper(ret);
+  this->treeFlag = false;
 }
 
 bool pdg::FunctionWrapper::hasTrees()
