@@ -527,6 +527,9 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForFunc(Function &F)
   auto &pdgUtils = PDGUtils::getInstance();
   FunctionWrapper *funcW = pdgUtils.getFuncMap()[&F];
   // for arguments
+  if (!pdgUtils.getFuncMap()[&F]->hasTrees()) { 
+    PDG->buildPDGForFunc(&F);
+  }
   for (auto argW : funcW->getArgWList())
     getIntraFuncReadWriteInfoForArg(argW, TreeType::FORMAL_IN_TREE);
 
