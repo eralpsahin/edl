@@ -24,9 +24,10 @@ class DIUtils
     // static std::string getFuncDITypeName(llvm::DIType *dt, std::string funcName);
     static std::string getArgName(llvm::Argument &arg, std::vector<llvm::DbgDeclareInst *> dbgInstList);
     static std::string getArgTypeName(llvm::Argument &arg);
-    static std::string getStructDefinition(llvm::DIType *dt);
-    static std::string getEnumDefinition(llvm::DIType *dt);
-    static std::string getUnionDefinition(llvm::DIType *dt);
+    static std::string insertStructDefinition(llvm::DIType *dt, std::map<std::string, std::string> &userDefinedTypes);
+    static std::string insertEnumDefinition(llvm::DIType *dt, std::map<std::string, std::string> &userDefinedTypes);
+    static std::string insertUnionDefinition(
+        llvm::DIType *dt, std::map<std::string, std::string> &userDefinedTypes);
     static std::string getFuncSigName(llvm::DIType *ty, std::string funcPtrName = "", std::string funcName = "", bool callFromDev = true);
     static void printStructFieldNames(llvm::DINodeArray DINodeArr);
     static bool isPointerType(llvm::DIType *dt);
@@ -36,6 +37,7 @@ class DIUtils
     static bool isUnionTy(llvm::DIType *dt);
     static bool isEnumTy(llvm::DIType *dt);
     static bool isFuncPointerTy(llvm::DIType *dt);
+    static bool isTypeDefTy(llvm::DIType *ty);
     static bool isTypeDefPtrTy(llvm::Argument &arg);
     static bool isTypeDefConstPtrTy(llvm::Argument &arg);
     static bool isVoidPointerTy(llvm::Argument &arg);

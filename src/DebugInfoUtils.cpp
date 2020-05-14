@@ -341,7 +341,8 @@ std::string pdg::DIUtils::getArgTypeName(Argument &arg)
   return getDITypeName(getArgDIType(arg));
 }
 
-std::string pdg::DIUtils::getStructDefinition(DIType *ty) {
+std::string pdg::DIUtils::insertStructDefinition(
+    DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
   std::string res = "\tstruct ";
   DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
   std::string structName = diComp->getName().str();
@@ -355,10 +356,14 @@ std::string pdg::DIUtils::getStructDefinition(DIType *ty) {
     res += "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
   }
   res += "\t};\n";
+  if (userDefinedTypes.find(structName) == userDefinedTypes.end()) { // Insert to map if not found
+    userDefinedTypes.insert({structName, res});
+  }
   return res;
 }
 
-std::string pdg::DIUtils::getEnumDefinition(DIType *ty) {
+std::string pdg::DIUtils::insertEnumDefinition(
+    DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
   std::string res = "\tenum ";
   DICompositeType *diComp =
       dyn_cast<DICompositeType>(getLowestDIType(ty));
@@ -371,10 +376,15 @@ std::string pdg::DIUtils::getEnumDefinition(DIType *ty) {
   }
   res = res.substr(0, res.length() -2);
   res += "\t};\n";
+  if (userDefinedTypes.find(diComp->getName().str()) ==
+      userDefinedTypes.end()) {  // Insert to map if not found
+    userDefinedTypes.insert({diComp->getName().str(), res});
+  }
   return res;
 }
 
-std::string pdg::DIUtils::getUnionDefinition(DIType *ty) {
+std::string pdg::DIUtils::insertUnionDefinition(
+    DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
   std::string res = "\tunion ";
   DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
   std::string unionName = diComp->getName().str();
@@ -392,6 +402,10 @@ std::string pdg::DIUtils::getUnionDefinition(DIType *ty) {
         "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
   }
   res += "\t};\n";
+  if (userDefinedTypes.find(unionName) ==
+      userDefinedTypes.end()) {  // Insert to map if not found
+    userDefinedTypes.insert({unionName, res});
+  }
   return res;
 }
 
@@ -477,11 +491,22 @@ bool pdg::DIUtils::isFuncPointerTy(DIType *dt)
   return false;
 }
 
+bool pdg::DIUtils::isTypeDefTy(llvm::DIType *ty) {
+  if (ty->getTag() == dwarf::DW_TAG_pointer_type) {
+    ty = getBaseDIType(ty);
+    if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_typedef) return true;
+  } else if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_typedef) {
+    return true;
+  }
+  return false;
+}
+
 bool pdg::DIUtils::isTypeDefPtrTy(llvm::Argument &arg) {
   DIType * ty = getArgDIType(arg);
   if (ty->getTag()== dwarf::DW_TAG_typedef) {
     ty = getBaseDIType(ty);
-    if (ty->getTag() == dwarf::DW_TAG_pointer_type) return true;
+    if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_pointer_type)
+      return true;
   }
   return isTypeDefConstPtrTy(arg);
 }
@@ -490,7 +515,7 @@ bool pdg::DIUtils::isTypeDefConstPtrTy(llvm::Argument &arg) {
   DIType *ty = getArgDIType(arg);
   if (ty->getTag() == dwarf::DW_TAG_typedef) {
     ty = getBaseDIType(ty);
-    if (ty->getTag() == dwarf::DW_TAG_pointer_type) {
+    if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_pointer_type) {
       ty = getBaseDIType(ty);
       if (ty != nullptr && ty->getTag() == dwarf::DW_TAG_const_type) return true;
     }

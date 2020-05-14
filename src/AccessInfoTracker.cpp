@@ -52,9 +52,7 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
   auto main = M.getFunction(StringRef("main"));
   auto mainClosure = getTransitiveClosure(*main);
 
-  std::string file_name = "Enclave.edl";
-  idl_file.open(file_name);
-  idl_file << "enclave" << " {\n\n\ttrusted {\n";
+  edl_file << "\ttrusted {\n";
 
   // Open file for ecall wrapper functions
   ecallWrapper_file.open("ecalls.cpp");
@@ -83,21 +81,21 @@ void pdg::AccessInfoTracker::createTrusted(std:: string prefix, Module &M) {
       if (definedFuncList.find(transFunc->getName()) != definedFuncList.end() || staticFuncList.find(transFunc->getName()) != staticFuncList.end())
         crossBoundary = true;
       getIntraFuncReadWriteInfoForFunc(*transFunc);
-      getInterFuncReadWriteInfo(*transFunc);
+      // getInterFuncReadWriteInfo(*transFunc);
     }
     writeECALLWrapper(*func);
     if (std::find(mainClosure.begin(), mainClosure.end(), func) != mainClosure.end()) // This function is in main Funcs closure
       generateIDLforFunc(*func, true); // It is possibly a root ECALL
     else generateIDLforFunc(*func, false);
-    idl_file <<";\n\n";
+    edl_file <<";\n\n";
   }
 
-  idl_file << "\t};\n";
+  edl_file << "\t};\n";
   ecallWrapper_file.close();
 
   // printGlobalLockWarningFunc();
 
-  idl_file.close();
+  edl_file.close();
   importedFuncs.close();
   definedFuncs.close();
   blackFuncs.close();
@@ -156,8 +154,8 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
 
   std::string file_name = "enclave";
   file_name += ".edl";
-  idl_file.open(file_name, std::fstream::in | std::fstream::out | std::fstream::app);
-  idl_file << "\n\tuntrusted {\n";
+  edl_file.open(file_name, std::fstream::in | std::fstream::out | std::fstream::app);
+  edl_file << "\n\tuntrusted {\n";
 
   for (auto funcName : importedFuncList)
   {
@@ -188,21 +186,20 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
         crossBoundary = true;
       }
       getIntraFuncReadWriteInfoForFunc(*transFunc);
-      getInterFuncReadWriteInfo(*transFunc);
+      // getInterFuncReadWriteInfo(*transFunc);
     }
     allow << ");";
     generateIDLforFunc(*func, false);
     // Write the allow syntax if there is an ECALL in this OCALL
     if (allow.str().length() > 8)
-      idl_file << allow.str() <<"\n\n";
-    else idl_file << ";\n\n";
+      edl_file << allow.str() <<"\n\n";
+    else edl_file << ";\n\n";
   }
 
-  idl_file << "\t};\n\n};";
+  edl_file << "\t};\n\n};";
 
   // printGlobalLockWarningFunc();
 
-  idl_file.close();
   importedFuncs.close();
   definedFuncs.close();
   blackFuncs.close();
@@ -224,6 +221,10 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   Heuristics::populateStringFuncs();
   Heuristics::populateMemFuncs();
 
+
+  std::string enclaveFile = "Enclave.edl";
+  edl_file.open(enclaveFile);
+
   // Read the untrusted domain information to create trusted side and wrappers
   createTrusted(UPREFIX, M);
 
@@ -239,7 +240,20 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M)
   // Read the trusted domain information to create untrusted side
   createUntrusted(TPREFIX, M);
 
+  edl_file.close();
 
+  std::ifstream temp(enclaveFile);
+  std::stringstream buffer;
+  buffer << temp.rdbuf();
+  edl_file.open(enclaveFile);
+  edl_file << "enclave" << " {\n\n";
+
+  for (auto el : userDefinedTypes) {
+    edl_file << el.second;
+  }
+  edl_file << buffer.str();
+
+  edl_file.close();
   return false;
 }
 
@@ -342,6 +356,7 @@ std::vector<Function *> pdg::AccessInfoTracker::getTransitiveClosure(Function &F
 
 AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
     const InstructionWrapper *instW, ArgumentWrapper *argW) {
+  auto &pdgUtils = PDGUtils::getInstance();
   auto dataDList = PDG->getNodeDepList(instW->getInstruction());
   AccessType accessType = AccessType::NOACCESS;
   for (auto depPair : dataDList) {
@@ -389,8 +404,16 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
         curr += 1;
       }
       assert(argNum != -1 && "argument is not found in the callInst's arguments");
-      if (DIUtils::isCharPointerTy(*argW->getArg()))
-        Heuristics::addStringAttribute(funcName, argNum, argW);
+      if (DIUtils::isCharPointerTy(*argW->getArg())) {
+        // if (funcName == "match_one") {
+        //   errs() << pdgUtils.getFuncMap()[callInst->getCalledFunction()]
+        //                 ->getArgWList().size() << "\n";
+        //   getIntraFuncReadWriteInfoForFunc(*callInst->getCalledFunction());
+        //   generateRpcForFunc(*callInst->getCalledFunction(), false);
+        // }
+            Heuristics::
+                   addStringAttribute(funcName, argNum, argW);
+      }
       if (DIUtils::isVoidPointerTy(*argW->getArg()))
         Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
     }
@@ -459,15 +482,15 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(ArgumentWrapper *ar
           std::string argName =
               DIUtils::getArgName(*(argW->getArg()), dbgInstList);
 
-          if ((unsigned)accType == 2) {
+          if (accType == AccessType::WRITE) {
             argW->getAttribute().setOut();
           }
-          if (count == 1 && (unsigned)accType == 1) {
+          if (count == 1 && accType == AccessType::READ) {
             argW->getAttribute().setIn();
           }
-          errs() << argName << " n" << count << "-"
-                 << getAccessAttributeName(treeI) << " => "
-                 << getAccessAttributeName((unsigned)accType) << "\n";
+          // errs() << argName << " n" << count << "-"
+          //        << getAccessAttributeName(treeI) << " => "
+          //        << getAccessAttributeName((unsigned)accType) << "\n";
 
           (*treeI)->setAccessType(accType);
         }
@@ -724,12 +747,12 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
   auto &pdgUtils = PDGUtils::getInstance();
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
   if (DIUtils::isStructPointerTy(funcRetType) || DIUtils::isStructTy(funcRetType)) {
-    idl_file << DIUtils::getStructDefinition(funcRetType);
+    DIUtils::insertStructDefinition(funcRetType, userDefinedTypes);
   } else if (DIUtils::isEnumTy(funcRetType)) {
-    idl_file << DIUtils::getEnumDefinition(funcRetType);
+    DIUtils::insertEnumDefinition(funcRetType, userDefinedTypes);
   } else if (DIUtils::isUnionTy(funcRetType) ||
              DIUtils::isUnionPointerTy(funcRetType)) {
-    idl_file << DIUtils::getUnionDefinition(funcRetType);
+    DIUtils::insertUnionDefinition(funcRetType, userDefinedTypes);
   }
   std::string retTypeName;
   if (funcRetType == nullptr)
@@ -737,9 +760,9 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
   else
     retTypeName = DIUtils::getDITypeName(funcRetType);
 
-  idl_file << "\t\t";
-  if (root) idl_file << "public ";
-  idl_file << retTypeName << " " << F.getName().str() << "( ";
+  edl_file << "\t\t";
+  if (root) edl_file << "public ";
+  edl_file << retTypeName << " " << F.getName().str() << "( ";
   // handle parameters
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList())
   {
@@ -749,15 +772,15 @@ void pdg::AccessInfoTracker::generateRpcForFunc(Function &F, bool root)
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (argType->getTypeID() == 15 &&
         !(DIUtils::isUnionTy(DIUtils::getArgDIType(arg)))) // Reject non pointer unions explicitly
-      idl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+      edl_file << argW->getAttribute().dump() << " " << DIUtils::getArgTypeName(arg) << " " << argName;
     else
-      idl_file << DIUtils::getArgTypeName(arg) << " " << argName;
+      edl_file << DIUtils::getArgTypeName(arg) << " " << argName;
     
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty())
-      idl_file << ", ";
+      edl_file << ", ";
   }
-  idl_file << " )";//\n\n";
+  edl_file << " )";
 }
 
 void pdg::AccessInfoTracker::generateIDLforFunc(Function &F, bool root)
@@ -775,46 +798,46 @@ void pdg::AccessInfoTracker::generateIDLforFunc(Function &F, bool root)
 
 void pdg::AccessInfoTracker::generateIDLforFuncPtrWithDI(DIType *funcDIType, Module *module, std::string funcPtrName)
 {
-  if (!DIUtils::isFuncPointerTy(funcDIType))
-    return;
-  std::vector<Function *> indirectCallTargets;
-  if (driverFuncPtrCallTargetMap.find(funcPtrName) != driverFuncPtrCallTargetMap.end())
-    indirectCallTargets.push_back(module->getFunction(StringRef(driverFuncPtrCallTargetMap[funcPtrName])));
-  else
-    indirectCallTargets = DIUtils::collectIndirectCallCandidatesWithDI(funcDIType, module, driverFuncPtrCallTargetMap);
+  // if (!DIUtils::isFuncPointerTy(funcDIType))
+  //   return;
+  // std::vector<Function *> indirectCallTargets;
+  // if (driverFuncPtrCallTargetMap.find(funcPtrName) != driverFuncPtrCallTargetMap.end())
+  //   indirectCallTargets.push_back(module->getFunction(StringRef(driverFuncPtrCallTargetMap[funcPtrName])));
+  // else
+  //   indirectCallTargets = DIUtils::collectIndirectCallCandidatesWithDI(funcDIType, module, driverFuncPtrCallTargetMap);
 
-  assert(indirectCallTargets.size() >= 1 && "indirect call target size < 1. Cannot generate IDL for such indirect call function");
+  // assert(indirectCallTargets.size() >= 1 && "indirect call target size < 1. Cannot generate IDL for such indirect call function");
 
-  auto &pdgUtils = PDGUtils::getInstance();
-  auto mergeToFunc = indirectCallTargets[0];
-  auto mergeToFuncW = pdgUtils.getFuncMap()[mergeToFunc];
+  // auto &pdgUtils = PDGUtils::getInstance();
+  // auto mergeToFunc = indirectCallTargets[0];
+  // auto mergeToFuncW = pdgUtils.getFuncMap()[mergeToFunc];
 
-  for (auto f : indirectCallTargets)
-  {
-    if (!pdgUtils.getFuncMap()[f]->hasTrees())
-      PDG->buildPDGForFunc(f);
-    getIntraFuncReadWriteInfoForFunc(*f);
-    getInterFuncReadWriteInfo(*f);
-  }
+  // for (auto f : indirectCallTargets)
+  // {
+  //   if (!pdgUtils.getFuncMap()[f]->hasTrees())
+  //     PDG->buildPDGForFunc(f);
+  //   getIntraFuncReadWriteInfoForFunc(*f);
+  //   getInterFuncReadWriteInfo(*f);
+  // }
 
-  for (int i = 0; i < mergeToFunc->arg_size(); ++i)
-  {
-    auto mergeToArgW = mergeToFuncW->getArgWByIdx(i);
-    auto mergeToArg = mergeToArgW->getArg();
-    if (!PDG->isStructPointer(mergeToArg->getType()))
-      continue;
-    auto oldMergeToArgTree = tree<InstructionWrapper *>(mergeToArgW->getTree(TreeType::FORMAL_IN_TREE));
-    for (int j = 1; j < indirectCallTargets.size(); ++j)
-    {
-      auto mergeFromArgW = pdgUtils.getFuncMap()[indirectCallTargets[j]]->getArgWByIdx(i);
-      mergeArgAccessInfo(mergeToArgW, mergeFromArgW, mergeToArgW->tree_begin(TreeType::FORMAL_IN_TREE));
-    }
-    // after merging, start generating projection
-    auto funcName = DIUtils::getDIFieldName(funcDIType);
-    generateIDLforArg(mergeToArgW, TreeType::FORMAL_IN_TREE, funcPtrName, true);
-    // printArgAccessInfo(mergeToArgW, TreeType::FORMAL_IN_TREE);
-    mergeToArgW->setTree(oldMergeToArgTree, TreeType::FORMAL_IN_TREE);
-  }
+  // for (int i = 0; i < mergeToFunc->arg_size(); ++i)
+  // {
+  //   auto mergeToArgW = mergeToFuncW->getArgWByIdx(i);
+  //   auto mergeToArg = mergeToArgW->getArg();
+  //   if (!PDG->isStructPointer(mergeToArg->getType()))
+  //     continue;
+  //   auto oldMergeToArgTree = tree<InstructionWrapper *>(mergeToArgW->getTree(TreeType::FORMAL_IN_TREE));
+  //   for (int j = 1; j < indirectCallTargets.size(); ++j)
+  //   {
+  //     auto mergeFromArgW = pdgUtils.getFuncMap()[indirectCallTargets[j]]->getArgWByIdx(i);
+  //     mergeArgAccessInfo(mergeToArgW, mergeFromArgW, mergeToArgW->tree_begin(TreeType::FORMAL_IN_TREE));
+  //   }
+  //   // after merging, start generating projection
+  //   auto funcName = DIUtils::getDIFieldName(funcDIType);
+  //   generateIDLforArg(mergeToArgW, TreeType::FORMAL_IN_TREE, funcPtrName, true);
+  //   // printArgAccessInfo(mergeToArgW, TreeType::FORMAL_IN_TREE);
+  //   mergeToArgW->setTree(oldMergeToArgTree, TreeType::FORMAL_IN_TREE);
+  // }
 }
 
 void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType treeTy, std::string funcName, bool handleFuncPtr)
@@ -834,20 +857,24 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   std::string argName = DIUtils::getArgName(*(argW->getArg()), dbgInstList);
   std::string sharedFieldPrefix = curImportedTransFuncName + argName;
   auto curDIType = (*check)->getDIType();
-  // TODO: Put definitions on outer scope
   if (DIUtils::isStructPointerTy(curDIType) || DIUtils::isStructTy(curDIType)) {
-    idl_file << DIUtils::getStructDefinition(DIUtils::getArgDIType(*argW->getArg()));
+    DIUtils::insertStructDefinition(DIUtils::getArgDIType(*argW->getArg()),
+                                    userDefinedTypes);
   } else if (DIUtils::isEnumTy(curDIType)) {
-    idl_file << DIUtils::getEnumDefinition(
-        DIUtils::getArgDIType(*argW->getArg()));
-  } else if (DIUtils::isUnionTy(curDIType) || DIUtils::isUnionPointerTy(curDIType)) {
-    idl_file << DIUtils::getUnionDefinition(
-        DIUtils::getArgDIType(*argW->getArg()));
+    DIUtils::insertEnumDefinition(DIUtils::getArgDIType(*argW->getArg()),
+                                  userDefinedTypes);
+  } else if (DIUtils::isUnionTy(curDIType) ||
+             DIUtils::isUnionPointerTy(curDIType)) {
+    DIUtils::insertUnionDefinition(DIUtils::getArgDIType(*argW->getArg()),
+                                   userDefinedTypes);
+  } else if (DIUtils::isTypeDefTy(curDIType)) {
+    // TODO: non-[struct enum union] typedefs
   }
 
+  // TODO: Handle include statements
   DIFile *file = curDIType->getFile();
   if (file != nullptr)
-          idl_file
+          edl_file
       << "\t\tinclude \"" << file->getFilename().str()
       << "\" // For param: " << argName << "\n\n ";
 
@@ -961,7 +988,7 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW, TreeType t
   //   } else
   //     projection_str.str("");
 
-  //   idl_file << projection_str.str();
+  //   edl_file << projection_str.str();
   //   accessed = false;
   // }
 }

@@ -55,7 +55,7 @@ public:
 private:
   ProgramDependencyGraph *PDG;
   llvm::CallGraph *CG;
-  std::ofstream idl_file;
+  std::ofstream edl_file;
   std::ofstream ecallWrapper_file;
   std::set<std::string> deviceObjStore; // Unused
   std::set<std::string> kernelObjStore; 
@@ -67,6 +67,7 @@ private:
   std::set<std::string> staticFuncList;
   std::set<std::string> lockFuncList;
   std::map<std::string, std::string> driverFuncPtrCallTargetMap;
+  std::map<std::string, std::string> userDefinedTypes;
   std::set<std::string> processedFuncPtrNames;
   std::map<std::string, std::array<int, 2>> sharedFieldMap;
   std::string curImportedTransFuncName;
