@@ -39,6 +39,9 @@ class Attribute {
   void setString() { string = 1; }
   void setSize(std::string val) { size = val; }
   void setCount(std::string val) { count = val; }
+  bool isString() { return string; }
+  bool isOut() { return out; }
+  bool isIn() { return in; }
 
   // Dump the attributes
   std::string dump() {

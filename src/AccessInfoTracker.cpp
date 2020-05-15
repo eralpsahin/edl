@@ -322,13 +322,21 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
       assert(argNum != -1 &&
              "argument is not found in the callInst's arguments");
       if (DIUtils::isCharPointerTy(*argW->getArg())) {
-        // if (funcName == "match_one") {
-        //   errs() << pdgUtils.getFuncMap()[callInst->getCalledFunction()]
-        //                 ->getArgWList().size() << "\n";
-        //   getIntraFuncReadWriteInfoForFunc(*callInst->getCalledFunction());
-        //   generateRpcForFunc(*callInst->getCalledFunction(), false);
-        // }
+        // Check if it is in the string funcs list
         Heuristics::addStringAttribute(funcName, argNum, argW);
+        
+        // Check whether the called function has string attribute for the arg
+        if (pdgUtils.getFuncMap().find(callInst->getCalledFunction()) !=
+            pdgUtils.getFuncMap().end()) {
+          auto funcW = pdgUtils.getFuncMap()[callInst->getCalledFunction()];
+          if (argNum < funcW->getArgWList().size()) {
+            ArgumentWrapper *innerArgW = funcW->getArgWList()[argNum];
+            if (innerArgW->getAttribute().isString())
+              argW->getAttribute().setString();
+            else if (innerArgW->getAttribute().isOut())
+              argW->getAttribute().setOut();
+          }
+        }
       }
       if (DIUtils::isVoidPointerTy(*argW->getArg()))
         Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
