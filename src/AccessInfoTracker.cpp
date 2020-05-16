@@ -333,8 +333,6 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
             ArgumentWrapper *innerArgW = funcW->getArgWList()[argNum];
             if (innerArgW->getAttribute().isString())
               argW->getAttribute().setString();
-            else if (innerArgW->getAttribute().isOut())
-              argW->getAttribute().setOut();
           }
         }
       }
