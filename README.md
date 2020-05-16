@@ -51,13 +51,13 @@ You need a SGX project such as [SampleSGX](https://github.com/eralpsahin/sample-
 
 ## Progress Slides
 
-[![Progress Slides](https://user-images.githubusercontent.com/10602289/77933952-689fc100-727d-11ea-8e3a-6faa9a90137c.png)](https://github.com/eralpsahin/edl/files/4403922/slides.pptx)
+[![Progress Slides](https://user-images.githubusercontent.com/10602289/82127969-45759600-9785-11ea-864d-616e14e2ed7b.png)](https://github.com/eralpsahin/edl/files/4403922/slides.pptx)
 
 ## Future work 
 
 - [X] Automatizing C project to SGX
 - [X] Public (root) ECALL
-- [ ] Struct, enum declarations
-- [ ] Additional include statement features
-- [ ] [String] attribute
+- [X] Struct, enum declarations
+- [X] Additional include statement features
+- [X] [String] attribute
 - [ ] [count - size] attributes
