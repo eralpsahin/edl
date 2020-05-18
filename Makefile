@@ -36,7 +36,7 @@ gen-t: libplugin.so $(EDIR)/Enclave.ll
 
 # Generate SGX project
 sgx: libplugin.so $(EDIR)/App.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -app ../$(EDIR)/App.c -enclave ../$(EDIR)/Enclave.c -defined_t trusted/defined_func.txt -ecalls ecalls.cpp < ../$(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined_t trusted/defined_func.txt < ../$(EDIR)/App.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
