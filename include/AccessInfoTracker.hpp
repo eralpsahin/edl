@@ -41,7 +41,8 @@ class AccessInfoTracker : public llvm::ModulePass {
   ProgramDependencyGraph *PDG;
   llvm::CallGraph *CG;
   std::ofstream edl_file;
-  std::ofstream ecallWrapper_file;
+  std::ofstream ecallsH;
+  std::ofstream ecallsC;
   std::set<std::string> deviceObjStore;  // Unused
   std::set<std::string> kernelObjStore;
   std::set<std::string> importedFuncList;

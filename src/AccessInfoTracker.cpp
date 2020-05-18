@@ -66,8 +66,15 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
   edl_file << "\ttrusted {\n";
 
   // Open file for ecall wrapper functions
-  ecallWrapper_file.open("ecalls.cpp");
-  ecallWrapper_file << "sgx_enclave_id_t global_eid = 0;\n";
+  ecallsH.open("Ecalls.h");
+  ecallsH << "#pragma once\n";
+  ecallsH << "#include \"Enclave_u.h\"\n#include \"sgx_urts.h\"\n#include "
+             "\"sgx_utils.h\"\n";
+  ecallsH << "extern sgx_enclave_id_t global_eid;\n";
+
+  ecallsC.open("Ecalls.cpp");
+  ecallsC << "#include \"Ecalls.h\"\n";
+  ecallsC << "sgx_enclave_id_t global_eid = 0;\n";
 
   for (auto funcName : importedFuncList) {
     crossBoundary = false;
@@ -99,7 +106,8 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
   }
 
   edl_file << "\t};\n";
-  ecallWrapper_file.close();
+  ecallsH.close();
+  ecallsC.close();
 }
 
 void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
@@ -153,7 +161,8 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
   else
     retTypeName = DIUtils::getDITypeName(funcRetType);
 
-  ecallWrapper_file << retTypeName << " " << F.getName().str() << "_ECALL( ";
+  ecallsH << retTypeName << " " << F.getName().str() << "_ECALL( ";
+  ecallsC << retTypeName << " " << F.getName().str() << "_ECALL( ";
   std::vector<std::pair<std::string, std::string> > argVec;
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
     Argument &arg = *argW->getArg();
@@ -161,40 +170,44 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
     auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (PDG->isStructPointer(argType)) {
-      ecallWrapper_file << " " << DIUtils::getArgTypeName(arg) << " "
-                        << argName;
+      ecallsH << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+      ecallsC << " " << DIUtils::getArgTypeName(arg) << " " << argName;
       argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
     } else {
       if (argType->getTypeID() == 15) {
-        ecallWrapper_file << DIUtils::getArgTypeName(arg) << " " << argName;
+        ecallsH << DIUtils::getArgTypeName(arg) << " " << argName;
+        ecallsC << DIUtils::getArgTypeName(arg) << " " << argName;
         argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
 
       } else {
-        ecallWrapper_file << DIUtils::getArgTypeName(arg) << " " << argName;
+        ecallsH << DIUtils::getArgTypeName(arg) << " " << argName;
+        ecallsC << DIUtils::getArgTypeName(arg) << " " << argName;
         argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
       }
     }
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty()) {
-      ecallWrapper_file << ", ";
+      ecallsH << ", ";
+      ecallsC << ", ";
     }
   }
-  ecallWrapper_file << ") {\n";
+  ecallsH << ");\n";
+  ecallsC << ") {\n";
   if (retTypeName != "void") {
-    ecallWrapper_file << "\t" << retTypeName << " res;\n";
+    ecallsC << "\t" << retTypeName << " res;\n";
   }
-  ecallWrapper_file << "\t" << F.getName().str() << "(global_eid";
+  ecallsC << "\t" << F.getName().str() << "(global_eid";
   if (retTypeName != "void") {
-    ecallWrapper_file << ", &res";
+    ecallsC << ", &res";
   }
   for (auto arg : argVec) {
-    ecallWrapper_file << ", " << arg.second;
+    ecallsC << ", " << arg.second;
   }
-  ecallWrapper_file << ");\n";
+  ecallsC << ");\n";
   if (retTypeName != "void") {
-    ecallWrapper_file << "\treturn res;\n";
+    ecallsC << "\treturn res;\n";
   }
-  ecallWrapper_file << "}\n";
+  ecallsC << "}\n";
 }
 
 void pdg::AccessInfoTracker::populateLists(std::string prefix) {
