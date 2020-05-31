@@ -42,7 +42,7 @@ class SGXGenerator : public llvm::ModulePass {
         "return 1;\n"
         "}\n";
     includeSt =
-        "#include \"Ecalls.h\"\n";
+        "#include \"Ecalls.h\"\n#include \"Unsupported.h\"\n";
   }
   static char ID;
   bool runOnModule(llvm::Module &M);
