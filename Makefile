@@ -35,8 +35,9 @@ gen-t: libplugin.so $(EDIR)/Enclave.ll
 	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/Enclave.ll
 
 # Generate SGX project
-sgx: libplugin.so $(EDIR)/App.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined_t trusted/defined_func.txt < ../$(EDIR)/App.ll
+sgx: libplugin.so $(EDIR)/App.ll $(EDIR)/Enclave.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined trusted/defined_func.txt -suffix "_ECALL" < ../$(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined untrusted/defined_func.txt -suffix "_OCALL" < ../$(EDIR)/Enclave.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean

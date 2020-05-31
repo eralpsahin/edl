@@ -97,7 +97,7 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
         crossBoundary = true;
       getIntraFuncReadWriteInfoForFunc(*transFunc);
     }
-    writeECALLWrapper(*func);
+    writeCALLWrapper(*func, ecallsH, ecallsC, "_ECALL");
     if (std::find(mainClosure.begin(), mainClosure.end(), func) !=
         mainClosure.end())  // This function is in main Funcs closure
       generateIDLforFunc(*func, true);  // It is possibly a root ECALL
@@ -113,8 +113,14 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
 
 void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   populateLists(prefix);
-  edl_file << "\n\tuntrusted {\n";
+  edl_file << "\n\tfrom \"Unsupported.edl\" import *;\n\tuntrusted {\n";
 
+  ocallsH.open("Ocalls.h");
+  ocallsH << "#pragma once\n";
+  ocallsH << "#include \"Enclave_t.h\"\n";
+
+  ocallsC.open("Ocalls.cpp");
+  ocallsC << "#include \"Ocalls.h\"\n";
   for (auto funcName : importedFuncList) {
     crossBoundary = false;
     curImportedTransFuncName = funcName;
@@ -143,6 +149,7 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
     }
     allow << ");";
     generateIDLforFunc(*func, false);
+    writeCALLWrapper(*func, ocallsH, ocallsC, "_OCALL");
     // Write the allow syntax if there is an ECALL in this OCALL
     if (allow.str().length() > 8)
       edl_file << allow.str() << "\n\n";
@@ -153,7 +160,10 @@ void pdg::AccessInfoTracker::createUntrusted(std::string prefix, Module &M) {
   edl_file << "\t};\n\n};";
 }
 
-void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
+void pdg::AccessInfoTracker::writeCALLWrapper(Function &F,
+                                              std::ofstream &header,
+                                              std::ofstream &cpp,
+                                              std::string suffix) {
   auto &pdgUtils = PDGUtils::getInstance();
   DIType *funcRetType = DIUtils::getFuncRetDIType(F);
   std::string retTypeName;
@@ -162,8 +172,8 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
   else
     retTypeName = DIUtils::getDITypeName(funcRetType);
 
-  ecallsH << retTypeName << " " << F.getName().str() << "_ECALL( ";
-  ecallsC << retTypeName << " " << F.getName().str() << "_ECALL( ";
+  header << retTypeName << " " << F.getName().str() << suffix << "( ";
+  cpp << retTypeName << " " << F.getName().str() << suffix << "( ";
   std::vector<std::pair<std::string, std::string> > argVec;
   for (auto argW : pdgUtils.getFuncMap()[&F]->getArgWList()) {
     Argument &arg = *argW->getArg();
@@ -171,44 +181,59 @@ void pdg::AccessInfoTracker::writeECALLWrapper(Function &F) {
     auto &dbgInstList = pdgUtils.getFuncMap()[&F]->getDbgDeclareInstList();
     std::string argName = DIUtils::getArgName(arg, dbgInstList);
     if (PDG->isStructPointer(argType)) {
-      ecallsH << " " << DIUtils::getArgTypeName(arg) << " " << argName;
-      ecallsC << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+      header << " " << DIUtils::getArgTypeName(arg) << " " << argName;
+      cpp << " " << DIUtils::getArgTypeName(arg) << " " << argName;
       argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
     } else {
       if (argType->getTypeID() == 15) {
-        ecallsH << DIUtils::getArgTypeName(arg) << " " << argName;
-        ecallsC << DIUtils::getArgTypeName(arg) << " " << argName;
+        header << DIUtils::getArgTypeName(arg) << " " << argName;
+        cpp << DIUtils::getArgTypeName(arg) << " " << argName;
         argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
 
       } else {
-        ecallsH << DIUtils::getArgTypeName(arg) << " " << argName;
-        ecallsC << DIUtils::getArgTypeName(arg) << " " << argName;
+        header << DIUtils::getArgTypeName(arg) << " " << argName;
+        cpp << DIUtils::getArgTypeName(arg) << " " << argName;
         argVec.push_back(make_pair(DIUtils::getArgTypeName(arg), argName));
       }
     }
 
     if (argW->getArg()->getArgNo() < F.arg_size() - 1 && !argName.empty()) {
-      ecallsH << ", ";
-      ecallsC << ", ";
+      header << ", ";
+      cpp << ", ";
     }
   }
-  ecallsH << ");\n";
-  ecallsC << ") {\n";
+  header << ");\n";
+  cpp << ") {\n";
   if (retTypeName != "void") {
-    ecallsC << "\t" << retTypeName << " res;\n";
+    cpp << "\t" << retTypeName << " res;\n";
   }
-  ecallsC << "\t" << F.getName().str() << "(global_eid";
+  if (suffix == "_ECALL") {
+    cpp << "\t" << F.getName().str() << "(global_eid";
+    if (retTypeName != "void") {
+      cpp << ", &res";
+    }
+    for (auto arg : argVec) {
+      cpp << ", " << arg.second;
+    }
+    cpp << ");\n";
+  } else {
+    cpp << "\t" << F.getName().str() << "(";
+    if (retTypeName != "void") {
+      cpp << "&res";
+    }
+    for (unsigned i = 0; i < argVec.size(); i += 1) {
+      if (i == 0 && retTypeName == "void") {
+        cpp << argVec[i].second;
+      } else
+        cpp << ", " << argVec[i].second;
+    }
+    cpp << ");\n";
+  }
+
   if (retTypeName != "void") {
-    ecallsC << ", &res";
+    cpp << "\treturn res;\n";
   }
-  for (auto arg : argVec) {
-    ecallsC << ", " << arg.second;
-  }
-  ecallsC << ");\n";
-  if (retTypeName != "void") {
-    ecallsC << "\treturn res;\n";
-  }
-  ecallsC << "}\n";
+  cpp << "}\n";
 }
 
 void pdg::AccessInfoTracker::populateLists(std::string prefix) {
@@ -338,7 +363,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
       if (DIUtils::isCharPointerTy(*argW->getArg())) {
         // Check if it is in the string funcs list
         Heuristics::addStringAttribute(funcName, argNum, argW);
-        
+
         // Check whether the called function has string attribute for the arg
         if (pdgUtils.getFuncMap().find(callInst->getCalledFunction()) !=
             pdgUtils.getFuncMap().end()) {
@@ -431,7 +456,7 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(
     if (isa<Instruction>(v) || isa<Argument>(v)) {
       // V is used in inst
       if (dyn_cast<Instruction>(v)) {
-        if (GetElementPtrInst* getEl =
+        if (GetElementPtrInst *getEl =
                 dyn_cast<GetElementPtrInst>(dyn_cast<Instruction>(v))) {
           Type *T = dyn_cast<PointerType>(getEl->getPointerOperandType())
                         ->getElementType();

@@ -20,7 +20,8 @@ class AccessInfoTracker : public llvm::ModulePass {
   bool runOnModule(llvm::Module &M);
   void createTrusted(std::string prefix, llvm::Module &M);
   void createUntrusted(std::string prefix, llvm::Module &M);
-  void writeECALLWrapper(llvm::Function &F);
+  void writeCALLWrapper(llvm::Function &F, std::ofstream &header, std::ofstream &cpp,
+                        std::string suffix);
   void populateLists(std::string prefix);
   void getAnalysisUsage(llvm::AnalysisUsage &AU) const;
   void getIntraFuncReadWriteInfoForArg(ArgumentWrapper *argW, TreeType treeTy);
@@ -43,6 +44,8 @@ class AccessInfoTracker : public llvm::ModulePass {
   std::ofstream edl_file;
   std::ofstream ecallsH;
   std::ofstream ecallsC;
+  std::ofstream ocallsH;
+  std::ofstream ocallsC;
   std::set<std::string> deviceObjStore;  // Unused
   std::set<std::string> kernelObjStore;
   std::set<std::string> importedFuncList;

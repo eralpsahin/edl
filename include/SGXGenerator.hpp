@@ -13,16 +13,16 @@
 #include "llvm/Pass.h"
 
 namespace pdg {
-struct ECALLLoc {
+struct CALLLoc {
   unsigned line;
   unsigned column;
   bool hasParam;
   bool isVoid;
   std::string filepath;
   std::string filename;
-  ECALLLoc() {}
-  ECALLLoc(std::string filepath, std::string filename, unsigned line,
-           unsigned column, bool hasParam = false, bool isVoid = true)
+  CALLLoc() {}
+  CALLLoc(std::string filepath, std::string filename, unsigned line,
+          unsigned column, bool hasParam = false, bool isVoid = true)
       : filepath(filepath),
         filename(filename),
         line(line),
@@ -41,26 +41,27 @@ class SGXGenerator : public llvm::ModulePass {
         "printf(\"Failed to initialize enclave.\\n\");\n"
         "return 1;\n"
         "}\n";
-    includeSt =
-        "#include \"Ecalls.h\"\n#include \"Unsupported.h\"\n";
+    untrustedInc = "#include \"Ecalls.h\"\n#include \"Unsupported.h\"\n";
+    trustedInc = "#include \"Ocalls.h\"\n#include \"Unsupported.h\"\n";
   }
   static char ID;
   bool runOnModule(llvm::Module &M);
   virtual bool doInitialization(llvm::Module &M);
 
  private:
-  std::set<std::string> definedFuncsT;  // Defined Functions of the Trusted Side
-  std::map<std::string, std::vector<ECALLLoc>>
-      fileECALLMap;         // ECALLLocs in each file
-  std::string initializer;  // initializer for SGX enclave
-  std::string includeSt;   // include statements necessary
+  std::set<std::string> definedFuncs;  // Defined Functions of the Trusted Side
+  std::map<std::string, std::vector<CALLLoc>>
+      fileCALLMap;           // CALLLocs in each file
+  std::string initializer;   // initializer for SGX enclave
+  std::string untrustedInc;  // include statements necessary
+  std::string trustedInc;
   int mainLine;
   std::string mainFile;
 
-  int searchECALL(std::string filepath, int line);
-  ECALLLoc getECALLInfo(llvm::CallInst *callInst);
-  void insertInMap(std::string file, ECALLLoc ecall);
-  void generateSGX(std::string file, std::vector<ECALLLoc> &ecallVec);
+  int searchCALL(std::string filepath, int line);
+  CALLLoc getCALLInfo(llvm::CallInst *callInst);
+  void insertInMap(std::string file, CALLLoc call);
+  void generateSGX(std::string file, std::vector<CALLLoc> &ecallVec);
   std::string getFilename(std::string filepath);
 };
 

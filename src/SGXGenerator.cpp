@@ -4,17 +4,20 @@ using namespace llvm;
 
 char pdg::SGXGenerator::ID = 0;
 
-static llvm::cl::opt<std::string> defined_t(
-    "defined_t",
-    llvm::cl::desc("Specify trusted side defined functions file path"),
-    llvm::cl::value_desc("defined_t"));
+static llvm::cl::opt<std::string> defined(
+    "defined", llvm::cl::desc("Specify defined functions file path"),
+    llvm::cl::value_desc("defined"));
 
-// Add ECALLs to definedFuncsT set
+static llvm::cl::opt<std::string> suffix(
+    "suffix", llvm::cl::desc("Specify suffix for code injection"),
+    llvm::cl::value_desc("suffix"));
+
+// Add CALLs to definedFuncs set
 bool pdg::SGXGenerator::doInitialization(llvm::Module &M) {
-  std::ifstream defined_func(defined_t);
+  std::ifstream defined_func(defined);
   std::string func;
   while (getline(defined_func, func)) {
-    definedFuncsT.insert(func);
+    definedFuncs.insert(func);
   }
   return false;
 }
@@ -32,16 +35,16 @@ bool pdg::SGXGenerator::runOnModule(Module &M) {
           mainDI->getDirectory().str() + "/" + mainDI->getFilename().str();
     }
 
-    // Find every ECALL call instruction
+    // Find every CALL call instruction
     for (auto &basicBlock : function) {
       for (auto &inst : basicBlock) {
         if (CallInst *callInst = dyn_cast<CallInst>(&inst)) {
-          // Skip intrinsic and non-ecall functions
+          // Skip intrinsic and non-call functions
           if (Function *called = callInst->getCalledFunction()) {
             if (!called->isIntrinsic() &&
-                definedFuncsT.find(called->getName()) != definedFuncsT.end()) {
-              ECALLLoc ecall = getECALLInfo(callInst);
-              insertInMap(ecall.filepath, ecall);
+                definedFuncs.find(called->getName()) != definedFuncs.end()) {
+              CALLLoc call = getCALLInfo(callInst);
+              insertInMap(call.filepath, call);
             }
           }
         }
@@ -50,16 +53,13 @@ bool pdg::SGXGenerator::runOnModule(Module &M) {
   }
 
   // TODO: Inject initializer to main
-  for (auto fileECALL : fileECALLMap) {
-    generateSGX(fileECALL.first, fileECALL.second);
+  for (auto fileCALL : fileCALLMap) {
+    generateSGX(fileCALL.first, fileCALL.second);
   }
-
-  // generateEnclaveFile();
-  // generateAppFile(eidLine, initLine);
   return false;
 }
 void pdg::SGXGenerator::generateSGX(std::string file,
-                                    std::vector<ECALLLoc> &ecallVec) {
+                                    std::vector<CALLLoc> &callVec) {
   std::ifstream untrustedFile(file);
   if (untrustedFile.fail()) {
     errs() << file << " cannot be opened\n";
@@ -67,28 +67,30 @@ void pdg::SGXGenerator::generateSGX(std::string file,
   }
   std::string line;
   unsigned currLine = 1;
-  unsigned ecallIdx = 0;
-  std::ofstream sgxUntrusted(getFilename(file));
-  if (sgxUntrusted.fail()) {
+  std::ofstream sgxFile(getFilename(file));
+  if (sgxFile.fail()) {
     errs() << "File cannot be opened\n";
     return;
   }
-  sgxUntrusted << includeSt;
+  if (suffix == "_ECALL")
+    sgxFile << untrustedInc;
+  else
+    sgxFile << trustedInc;
   while (getline(untrustedFile, line)) {
     if (mainFile == file && currLine == mainLine) {
-      sgxUntrusted << this->initializer << "\n";
+      sgxFile << this->initializer << "\n";
     }
-    int ecallIdx = searchECALL(file, currLine);
-    if (ecallIdx != -1) {
-      line.insert(fileECALLMap[file][ecallIdx].column - 1, "_ECALL");
+    int callIdx = searchCALL(file, currLine);
+    if (callIdx != -1) {
+      line.insert(fileCALLMap[file][callIdx].column - 1, suffix);
     }
-    sgxUntrusted << line << "\n";
+    sgxFile << line << "\n";
     currLine++;
   }
-  sgxUntrusted.close();
+  sgxFile.close();
 }
 
-pdg::ECALLLoc pdg::SGXGenerator::getECALLInfo(CallInst *callInst) {
+pdg::CALLLoc pdg::SGXGenerator::getCALLInfo(CallInst *callInst) {
   Function *enclosingFunc = callInst->getFunction();
   Function *called = callInst->getCalledFunction();
   MDNode *node = enclosingFunc->getMetadata(0);
@@ -103,31 +105,30 @@ pdg::ECALLLoc pdg::SGXGenerator::getECALLInfo(CallInst *callInst) {
   bool hasParam = callInst->getNumArgOperands();
   bool isVoid = called->getReturnType()->isVoidTy();
   // Create ECALLLoc struct and return
-  return ECALLLoc(filepath, filename, line, column, hasParam, isVoid);
+  return CALLLoc(filepath, filename, line, column, hasParam, isVoid);
 }
 
-void pdg::SGXGenerator::insertInMap(std::string file, ECALLLoc ecall) {
-  if (fileECALLMap.find(file) == fileECALLMap.end()) {
-    fileECALLMap.insert(make_pair(file, std::vector<ECALLLoc>()));
-    fileECALLMap[file].push_back(ecall);
+void pdg::SGXGenerator::insertInMap(std::string file, CALLLoc ecall) {
+  if (fileCALLMap.find(file) == fileCALLMap.end()) {
+    fileCALLMap.insert(make_pair(file, std::vector<CALLLoc>()));
+    fileCALLMap[file].push_back(ecall);
   } else {
-    fileECALLMap[file].push_back(ecall);
+    fileCALLMap[file].push_back(ecall);
   }
 }
 
-int pdg::SGXGenerator::searchECALL(std::string filepath, int line) {
-  if (fileECALLMap.find(filepath) == fileECALLMap.end()) return -1;
-  for (unsigned idx = 0; idx < fileECALLMap[filepath].size(); idx += 1) {
-    if (fileECALLMap[filepath][idx].line == line) return idx;
+int pdg::SGXGenerator::searchCALL(std::string filepath, int line) {
+  if (fileCALLMap.find(filepath) == fileCALLMap.end()) return -1;
+  for (unsigned idx = 0; idx < fileCALLMap[filepath].size(); idx += 1) {
+    if (fileCALLMap[filepath][idx].line == line) return idx;
   }
   return -1;
 }
 
 std::string pdg::SGXGenerator::getFilename(std::string filepath) {
   int i = filepath.rfind("/");
-  if (i == std::string::npos)
-    return filepath;
-  return filepath.substr(i+1);
+  if (i == std::string::npos) return filepath;
+  return filepath.substr(i + 1);
 }
 
 static RegisterPass<pdg::SGXGenerator> sgxGenerator("sgx",
