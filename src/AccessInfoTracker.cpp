@@ -62,6 +62,7 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
   // Get the main Functions closure for root ECALLs
   auto main = M.getFunction(StringRef("main"));
   auto mainClosure = getTransitiveClosure(*main);
+  PDG->buildPDGForFunc(main);
 
   edl_file << "\ttrusted {\n";
 
@@ -415,6 +416,30 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(
         //        << getAccessAttributeName((unsigned)accType) << "\n";
 
         (*treeI)->setAccessType(accType);
+      }
+    }
+  }
+
+  auto main = pdgUtils.getFuncMap()[func]
+                  ->getDbgDeclareInstList()[0]
+                  ->getModule()
+                  ->getFunction(StringRef("main"));
+  for (auto callinst : pdgUtils.getFuncMap()[main]->getCallInstList()) {
+    if (callinst->getCalledFunction() != argW->getFunc()) continue;
+    if (callinst->getNumArgOperands() < argW->getArg()->getArgNo()) continue;
+    Value *v = callinst->getOperand(argW->getArg()->getArgNo());
+    if (isa<Instruction>(v) || isa<Argument>(v)) {
+      // V is used in inst
+      if (dyn_cast<Instruction>(v)) {
+        if (GetElementPtrInst* getEl =
+                dyn_cast<GetElementPtrInst>(dyn_cast<Instruction>(v))) {
+          Type *T = dyn_cast<PointerType>(getEl->getPointerOperandType())
+                        ->getElementType();
+          if (isa<ArrayType>(T)) {
+            argW->getAttribute().setCount(
+                std::to_string(T->getArrayNumElements()));
+          }
+        }
       }
     }
   }
