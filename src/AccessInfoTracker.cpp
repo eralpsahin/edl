@@ -21,6 +21,7 @@ bool pdg::AccessInfoTracker::runOnModule(Module &M) {
   // Populate function name sets for [string, size, count] attributes
   Heuristics::populateStringFuncs();
   Heuristics::populateMemFuncs();
+  Heuristics::populateprintfFuncs();
 
   std::string enclaveFile = "Enclave.edl";
   edl_file.open(enclaveFile);
@@ -363,7 +364,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
       if (DIUtils::isCharPointerTy(*argW->getArg())) {
         // Check if it is in the string funcs list
         Heuristics::addStringAttribute(funcName, argNum, argW);
-
+        Heuristics::checkPrintf(callInst, argNum, argW);
         // Check whether the called function has string attribute for the arg
         if (pdgUtils.getFuncMap().find(callInst->getCalledFunction()) !=
             pdgUtils.getFuncMap().end()) {

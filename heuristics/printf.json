@@ -1,0 +1,5 @@
+[
+  ["printf", 0],
+  ["fprintf", 1],
+  ["sprintf", 1]
+]
