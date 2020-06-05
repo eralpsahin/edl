@@ -343,8 +343,10 @@ std::string pdg::DIUtils::getArgTypeName(Argument &arg)
 
 std::string pdg::DIUtils::insertStructDefinition(
     DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
-  std::string res = "\tstruct ";
   DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
+  if (diComp->getFile()->getFilename().str().find("/usr/include") == 0)
+    return "";
+  std::string res = "\tstruct ";
   std::string structName = diComp->getName().str();
   if (structName == "") {
     DIType *baseTy = dyn_cast<DIDerivedType>(ty)->getBaseType();
@@ -352,11 +354,13 @@ std::string pdg::DIUtils::insertStructDefinition(
   }
   res += structName + " {\n";
   for (auto el : diComp->getElements()) {
-    DIType * elType = dyn_cast<DIType>(el);
-    res += "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
+    DIType *elType = dyn_cast<DIType>(el);
+    res +=
+        "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
   }
   res += "\t};\n";
-  if (userDefinedTypes.find(structName) == userDefinedTypes.end()) { // Insert to map if not found
+  if (userDefinedTypes.find(structName) ==
+      userDefinedTypes.end()) {  // Insert to map if not found
     userDefinedTypes.insert({structName, res});
   }
   return res;
@@ -364,17 +368,16 @@ std::string pdg::DIUtils::insertStructDefinition(
 
 std::string pdg::DIUtils::insertEnumDefinition(
     DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
+  DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
+  if (diComp->getFile()->getFilename().str().find("/usr/include") == 0)
+    return "";
   std::string res = "\tenum ";
-  DICompositeType *diComp =
-      dyn_cast<DICompositeType>(getLowestDIType(ty));
   res += diComp->getName().str() + " { ";
   for (auto el : diComp->getElements()) {
     DIEnumerator *enumEl = dyn_cast<DIEnumerator>(el);
     res += enumEl->getName().str() + ", ";
-    // res +=
-    //     "\t\t" + getDITypeName(elType) + " " + elType->getName().str() + ";\n";
   }
-  res = res.substr(0, res.length() -2);
+  res = res.substr(0, res.length() - 2);
   res += "\t};\n";
   if (userDefinedTypes.find(diComp->getName().str()) ==
       userDefinedTypes.end()) {  // Insert to map if not found
@@ -385,14 +388,16 @@ std::string pdg::DIUtils::insertEnumDefinition(
 
 std::string pdg::DIUtils::insertUnionDefinition(
     DIType *ty, std::map<std::string, std::string> &userDefinedTypes) {
-  std::string res = "\tunion ";
   DICompositeType *diComp = dyn_cast<DICompositeType>(getLowestDIType(ty));
+  if (diComp->getFile()->getFilename().str().find("/usr/include") == 0)
+    return "";
+  std::string res = "\tunion ";
   std::string unionName = diComp->getName().str();
   if (unionName == "") {
     DIType *baseTy = dyn_cast<DIDerivedType>(ty)->getBaseType();
     unionName = baseTy->getName().str();
   }
-  if (unionName == "") { // For typedefed non-pointer unions name is in the ty 
+  if (unionName == "") {  // For typedefed non-pointer unions name is in the ty
     unionName = ty->getName().str();
   }
   res += unionName + " {\n";

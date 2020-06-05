@@ -617,14 +617,21 @@ void pdg::AccessInfoTracker::generateIDLforArg(ArgumentWrapper *argW,
     DIUtils::insertUnionDefinition(DIUtils::getArgDIType(*argW->getArg()),
                                    userDefinedTypes);
   } else if (DIUtils::isTypeDefTy(curDIType)) {
-    // TODO: non-[struct enum union] typedefs
+    auto base = dyn_cast<DIDerivedType>(curDIType)->getBaseType();
+    if (DISubroutineType *diSub =
+            dyn_cast<DISubroutineType>(DIUtils::getLowestDIType(base))) {
+      llvm::errs() << "Function pointer typedef found for " << *base << "\n";
+    } else {
+      DIFile *file = curDIType->getFile();
+      if (file == nullptr) file = base->getFile();
+      if (file != nullptr &&
+          file->getFilename().str().find("/usr/include") != 0) {
+        userDefinedTypes.insert({file->getFilename().str(),
+                                 "include \"" + file->getFilename().str() +
+                                     "\" // For param: " + argName + "\n"});
+      }
+    }
   }
-
-  // TODO: Handle include statements
-  DIFile *file = curDIType->getFile();
-  if (file != nullptr)
-    edl_file << "\t\tinclude \"" << file->getFilename().str()
-             << "\" // For param: " << argName << "\n\n ";
 }
 
 std::string pdg::getAccessAttributeName(
