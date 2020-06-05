@@ -7,7 +7,7 @@
 
 #include "ArgumentWrapper.hpp"
 #include "ProgramDependencyGraph.hpp"
-
+#include "json.hpp"
 namespace pdg {
 
 class Heuristics {
@@ -15,6 +15,8 @@ class Heuristics {
   static void populateStringFuncs();
   static void populateMemFuncs();
   static void populateprintfFuncs();
+  static void populateMapFrom(std::map<std::string, std::set<unsigned>>& map,
+                              json::JSON json);
   static void addSizeAttribute(std::string funcName, int argNum,
                                llvm::CallInst* callInst, ArgumentWrapper* argW,
                                ProgramDependencyGraph* PDG);
@@ -26,10 +28,10 @@ class Heuristics {
                                               unsigned startIdx);
 
  private:
-  static std::set<std::string> inStr;
-  static std::set<std::string> outStr;
-  static std::set<std::string> inMem;
-  static std::set<std::string> outMem;
+  static std::map<std::string, std::set<unsigned>> inStr;
+  static std::map<std::string, std::set<unsigned>> outStr;
+  static std::map<std::string, std::set<unsigned>> inMem;
+  static std::map<std::string, std::set<unsigned>> outMem;
   static std::map<std::string, unsigned> printfFuncs;
 };
 

@@ -70,7 +70,6 @@ class Attribute {
                    // count
       attrs.push_back("string");
     } else if (in || out) {
-      // TODO: handle when size or count is not a literal number
       if (size.length() != 0) attrs.push_back("size=" + size);
       if (count.length() != 0 && count != "1")
         attrs.push_back("count=" + count);  // Count 1 is what EDL assumes

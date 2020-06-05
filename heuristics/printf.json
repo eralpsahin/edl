@@ -1,5 +1,6 @@
 [
   ["printf", 0],
   ["fprintf", 1],
-  ["sprintf", 1]
+  ["sprintf", 1],
+  ["__snprintf_chk", 4]
 ]

@@ -1,14 +1,15 @@
 {
   "in": [
-    "memchr",
-    "memcmp"
+    {"name": "memchr", "idx": [0], "size": [2]},
+    {"name": "memrchr", "idx": [0], "size": [2]},
+    {"name": "memrchr", "idx": [0], "size": [2]},
+    {"name": "memcmp", "idx": [0,1], "size": [2, 2]},
+    {"name": "__memmove_chk", "idx": [1], "size": [2]},
+    {"name": "__memcpy_chk", "idx": [1], "size": [2]}
   ],
   "out": [
-   "memcpy",
-   "__memcpy_chk",
-   "memmove",
-   "__memmove_chk",
-   "memset",
-   "__memset_chk"
+   {"name": "__memcpy_chk", "idx": [0], "size": [2]},
+   {"name": "__memmove_chk", "idx": [0], "size": [2]},
+   {"name": "__memset_chk", "idx": [0], "size": [2]}
   ]
 }

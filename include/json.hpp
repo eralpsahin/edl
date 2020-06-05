@@ -216,7 +216,7 @@ class JSON {
     return ret;
   }
 
-  static JSON Load(const string &);
+  static inline JSON Load(const string &);
 
   template <typename T>
   void append(T arg) {
@@ -410,8 +410,6 @@ class JSON {
     return "";
   }
 
-  friend std::ostream &operator<<(std::ostream &, const JSON &);
-
  private:
   void SetType(Class type) {
     if (type == Type) return;
@@ -469,7 +467,7 @@ class JSON {
   Class Type = Class::Null;
 };
 
-JSON Array() { return std::move(JSON::Make(JSON::Class::Array)); }
+static inline JSON Array() { return std::move(JSON::Make(JSON::Class::Array)); }
 
 template <typename... T>
 JSON Array(T... args) {
@@ -478,11 +476,8 @@ JSON Array(T... args) {
   return std::move(arr);
 }
 
-JSON Object() { return std::move(JSON::Make(JSON::Class::Object)); }
-
-std::ostream &operator<<(std::ostream &os, const JSON &json) {
-  os << json.dump();
-  return os;
+static inline JSON Object() {
+  return std::move(JSON::Make(JSON::Class::Object));
 }
 
 namespace {

@@ -1,13 +1,11 @@
 #include "Heuristics.hpp"
 
-#include "json.hpp"
-
 // Initialize static data members
-std::set<std::string> Heuristics::inStr;
-std::set<std::string> Heuristics::outStr;
+std::map<std::string, std::set<unsigned>> Heuristics::inStr;
+std::map<std::string, std::set<unsigned>> Heuristics::outStr;
 std::map<std::string, unsigned> Heuristics::printfFuncs;
-std::set<std::string> Heuristics::inMem;
-std::set<std::string> Heuristics::outMem;
+std::map<std::string, std::set<unsigned>> Heuristics::inMem;
+std::map<std::string, std::set<unsigned>> Heuristics::outMem;
 
 void Heuristics::populateStringFuncs() {
   json::JSON strJSON;
@@ -15,17 +13,8 @@ void Heuristics::populateStringFuncs() {
   std::stringstream buffer;
   buffer << t.rdbuf();
   strJSON = json::JSON::Load(buffer.str());  // Load the json
-  unsigned length = strJSON["in"].length();
-
-  // Add function names to in and out vectors
-  for (unsigned i = 0; i < length; i += 1) {
-    inStr.insert(strJSON["in"][i].ToString());
-  }
-
-  length = strJSON["out"].length();
-  for (unsigned i = 0; i < length; i += 1) {
-    outStr.insert(strJSON["out"][i].ToString());
-  }
+  populateMapFrom(inStr, strJSON["in"]);
+  populateMapFrom(outStr, strJSON["out"]);
 }
 
 void Heuristics::populateMemFuncs() {
@@ -35,17 +24,8 @@ void Heuristics::populateMemFuncs() {
   buffer << t.rdbuf();
   memJSON = json::JSON::Load(buffer.str());  // Load the json
 
-  unsigned length = memJSON["in"].length();
-
-  // Add function names to in and out vectors
-  for (unsigned i = 0; i < length; i += 1) {
-    inMem.insert(memJSON["in"][i].ToString());
-  }
-
-  length = memJSON["out"].length();
-  for (unsigned i = 0; i < length; i += 1) {
-    outMem.insert(memJSON["out"][i].ToString());
-  }
+  populateMapFrom(inMem, memJSON["in"]);
+  populateMapFrom(outMem, memJSON["out"]);
 }
 
 void Heuristics::populateprintfFuncs() {
@@ -61,6 +41,19 @@ void Heuristics::populateprintfFuncs() {
   }
 }
 
+void Heuristics::populateMapFrom(std::map<std::string, std::set<unsigned>>& map,
+                                 json::JSON json) {
+  unsigned length = json.length();
+  for (unsigned i = 0; i < length; i += 1) {
+    std::string funcName = json[i]["name"].ToString();
+    map.insert(std::pair<std::string, std::set<unsigned>>(funcName, {}));
+    unsigned args = json[i]["idx"].length();
+    for (unsigned j = 0; j < args; j += 1) {
+      map[funcName].insert(json[i]["idx"][j].ToInt());
+    }
+  }
+}
+
 /**
  * Void pointers should have size attributes.
  *
@@ -73,25 +66,48 @@ void Heuristics::addSizeAttribute(std::string funcName, int argNum,
   if (inMem.find(funcName) != inMem.end() ||
       outMem.find(funcName) != outMem.end()) {
     // size argument
-    auto arg = callInst->getOperand(2);
-    if (llvm::ConstantInt* CI = llvm::dyn_cast<llvm::ConstantInt>(arg)) {
+    auto val = callInst->getOperand(2);
+    if (llvm::ConstantInt* CI = llvm::dyn_cast<llvm::ConstantInt>(val)) {
       // Size is a literal
       argW->getAttribute().setSize(std::to_string(CI->getZExtValue()));
     } else {
-      // Size is not a literal
-      // TODO: Handle local vars and arguments
-      auto dataDList =
-          PDG->getNodeDepList(llvm::dyn_cast<llvm::Instruction>(arg));
-      for (auto depPair : dataDList) {
+      // Size is not a literal get alias instructions
+      auto paramDepList =
+          PDG->getNodeDepList(llvm::dyn_cast<llvm::Instruction>(val));
+      std::set<llvm::Instruction*> insts;  // insert alias insts here
+      for (auto depPair : paramDepList) {
         InstructionWrapper* depInstW =
             const_cast<InstructionWrapper*>(depPair.first->getData());
-        // TODO: try to get the argument
+        if (depPair.second == DependencyType::DATA_ALIAS) {
+          insts.insert(depInstW->getInstruction());
+        }
+      }
+
+      auto& pdgUtils = PDGUtils::getInstance();
+      FunctionWrapper* funcW = pdgUtils.getFuncMap()[callInst->getFunction()];
+      for (auto argWIt : funcW->getArgWList()) {
+        // Get the allocation instruction dependencies
+        auto inst = PDG->getArgAllocaInst(*argWIt->getArg());
+        auto argAllocDepList = PDG->getNodeDepList(inst);
+        for (auto depPair : argAllocDepList) {
+          InstructionWrapper* depInstW =
+              const_cast<InstructionWrapper*>(depPair.first->getData());
+          if (depPair.second == DependencyType::DATA_READ) {
+            if (insts.find(depInstW->getInstruction()) != insts.end()) {
+              std::string argName = DIUtils::getArgName(
+                  *argWIt->getArg(), funcW->getDbgDeclareInstList());
+              argW->getAttribute().setSize(argName);
+              break;
+            }
+          }
+        }
       }
     }
-    if (inMem.find(funcName) != inMem.end() ||
-        (outMem.find(funcName) != outMem.end() && argNum == 1))
+    if (inMem.find(funcName) != inMem.end() &&
+        inMem[funcName].find(argNum) != inMem[funcName].end())
       argW->getAttribute().setIn();
-    else if (outMem.find(funcName) != outMem.end() && argNum == 0)
+    else if (outMem.find(funcName) != outMem.end() &&
+             outMem[funcName].find(argNum) != outMem[funcName].end())
       argW->getAttribute().setOut();
   }
 }
@@ -102,13 +118,14 @@ void Heuristics::addSizeAttribute(std::string funcName, int argNum,
  */
 void Heuristics::addStringAttribute(std::string funcName, int argNum,
                                     ArgumentWrapper* argW) {
-  if (inStr.find(funcName) != inStr.end() ||
-      outStr.find(funcName) !=
-          outStr.end()) {  // argument of a string functions
+  if (inStr.find(funcName) != inStr.end() &&
+      inStr[funcName].find(argNum) !=
+          outStr[funcName].end()) {  // argument of a string functions
     argW->getAttribute().setString();
   }
   if (outStr.find(funcName) != outStr.end() &&
-      argNum == 0) {  // First argument means modification
+      outStr[funcName].find(argNum) !=
+          outStr[funcName].end()) {  // First argument means modification
     argW->getAttribute().setOut();
   }
 }

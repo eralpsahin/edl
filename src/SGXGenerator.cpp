@@ -52,7 +52,6 @@ bool pdg::SGXGenerator::runOnModule(Module &M) {
     }
   }
 
-  // TODO: Inject initializer to main
   for (auto fileCALL : fileCALLMap) {
     generateSGX(fileCALL.first, fileCALL.second);
   }
