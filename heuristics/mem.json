@@ -2,7 +2,6 @@
   "in": [
     {"name": "memchr", "idx": [0], "size": [2]},
     {"name": "memrchr", "idx": [0], "size": [2]},
-    {"name": "memrchr", "idx": [0], "size": [2]},
     {"name": "memcmp", "idx": [0,1], "size": [2, 2]},
     {"name": "__memmove_chk", "idx": [1], "size": [2]},
     {"name": "__memcpy_chk", "idx": [1], "size": [2]}

@@ -1,8 +1,19 @@
+#include "Enclave.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "Enclave.h"
+char *key;
 
-int generate_secret_value() {
-  return 10;
+void initkey(const char *username, int sz) {
+  greeter(username);
+  key = (char *)(malloc(sz));
+  // init the key randomly; code omitted
+  for (int i = 0; i < sz; i++) key[i] = 1;
+}
+
+char *encrypt(char *plaintext, int sz) {
+  char *ciphertext = (char *)(malloc(sz));
+  for (int i = 0; i < sz; i++) ciphertext[i] = plaintext[i] ^ key[i];
+  return ciphertext;
 }
