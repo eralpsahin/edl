@@ -61,7 +61,7 @@ class SGXGenerator : public llvm::ModulePass {
   int searchCALL(std::string filepath, int line);
   CALLLoc getCALLInfo(llvm::CallInst *callInst);
   void insertInMap(std::string file, CALLLoc call);
-  void generateSGX(std::string file, std::vector<CALLLoc> &ecallVec);
+  void generateSGX(std::string file);
   std::string getFilename(std::string filepath);
 };
 

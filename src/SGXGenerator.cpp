@@ -26,16 +26,22 @@ bool pdg::SGXGenerator::runOnModule(Module &M) {
   // According to the location of main func, learn where to define eid
   // and where to initialize enclave
   for (Function &function : M) {
+    if (function.isDeclaration()) continue;  // skip intrinsic funcs
+
+    // Get func Metadata and filepath
+    DISubprogram *funcMeta =
+        dyn_cast<llvm::DISubprogram>(function.getMetadata(0));
+    std::string funcFilepath =
+        funcMeta->getDirectory().str() + "/" + funcMeta->getFilename().str();
+
     if (function.getName() == "main") {
       mainLine =
           function.getSubprogram()->getScopeLine() + 1;  // After this line
-      DIFile *mainDI =
-          dyn_cast<llvm::DIScope>(function.getMetadata(0))->getFile();
-      mainFile =
-          mainDI->getDirectory().str() + "/" + mainDI->getFilename().str();
+      mainFile = funcFilepath;
     }
 
-    // Find every CALL call instruction
+    fileCALLMap.insert(make_pair(funcFilepath, std::vector<CALLLoc>()));
+    // Find every ECALL - OCALL call instruction
     for (auto &basicBlock : function) {
       for (auto &inst : basicBlock) {
         if (CallInst *callInst = dyn_cast<CallInst>(&inst)) {
@@ -53,12 +59,12 @@ bool pdg::SGXGenerator::runOnModule(Module &M) {
   }
 
   for (auto fileCALL : fileCALLMap) {
-    generateSGX(fileCALL.first, fileCALL.second);
+    generateSGX(fileCALL.first);
   }
   return false;
 }
-void pdg::SGXGenerator::generateSGX(std::string file,
-                                    std::vector<CALLLoc> &callVec) {
+
+void pdg::SGXGenerator::generateSGX(std::string file) {
   std::ifstream untrustedFile(file);
   if (untrustedFile.fail()) {
     errs() << file << " cannot be opened\n";
