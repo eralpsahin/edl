@@ -9,7 +9,7 @@ EDIR := ./example
 CC := clang-9
 CC_FLAGS := -emit-llvm -S -g
 
-libplugin.so:
+libpdg.so:
 	@cd $(ODIR) && cmake ..
 	@$(MAKE) -C $(ODIR)
 
@@ -23,21 +23,21 @@ clean: eclean
 
 # Do EDL generation pass
 edl: gen-u gen-t $(EDIR)/test.ll
-	cd $(ODIR) && opt -disable-output -load libpdg.so -accinfo-track -d 1 -u "untrusted/" -t "trusted/" < ../$(EDIR)/test.ll
+	@cd $(ODIR) && opt -disable-output -load ./libpdg.so -accinfo-track -d 1 -u "untrusted/" -t "trusted/" < ../$(EDIR)/test.ll
 
 # Generate function list from untrusted
-gen-u: libplugin.so $(EDIR)/App.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(UNTRUSTED)/ < ../$(EDIR)/App.ll
+gen-u: libpdg.so $(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load ./libpdg.so -llvm-test -prefix $(UNTRUSTED)/ < ../$(EDIR)/App.ll
 
 
 # Generate function list from trusted
-gen-t: libplugin.so $(EDIR)/Enclave.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/Enclave.ll
+gen-t: libpdg.so $(EDIR)/Enclave.ll
+	@cd $(ODIR) && opt -disable-output -load ./libpdg.so -llvm-test -prefix $(TRUSTED)/ < ../$(EDIR)/Enclave.ll
 
 # Generate SGX project
-sgx: libplugin.so $(EDIR)/App.ll $(EDIR)/Enclave.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined trusted/defined_func.txt -suffix "_ECALL" < ../$(EDIR)/App.ll
-	@cd $(ODIR) && opt -disable-output -load libpdg.so -sgx -defined untrusted/defined_func.txt -suffix "_OCALL" < ../$(EDIR)/Enclave.ll
+sgx: libpdg.so $(EDIR)/App.ll $(EDIR)/Enclave.ll
+	@cd $(ODIR) && opt -disable-output -load ./libpdg.so -sgx -defined trusted/defined_func.txt -suffix "_ECALL" < ../$(EDIR)/App.ll
+	@cd $(ODIR) && opt -disable-output -load ./libpdg.so -sgx -defined untrusted/defined_func.txt -suffix "_OCALL" < ../$(EDIR)/Enclave.ll
 
 # Build clean cleans the files generated from passes in build directory
 bclean: eclean
