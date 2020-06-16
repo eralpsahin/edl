@@ -376,7 +376,7 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
           }
         }
       }
-      if (DIUtils::isVoidPointerTy(*argW->getArg()))
+      if (DIUtils::isPointerType(DIUtils::getArgDIType(*argW->getArg())))
         Heuristics::addSizeAttribute(funcName, argNum, callInst, argW, PDG);
     }
   }
@@ -423,6 +423,14 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(
         PDG->getNodesWithDepType(*treeI, DependencyType::VAL_DEP);
     for (auto valDepPair : valDepPairList) {
       auto dataW = valDepPair.first->getData();
+      for (auto castInst :
+           pdgUtils.getFuncMap()[argW->getFunc()]->getCastInstList()) {
+        if (castInst->getOperand(0) == dataW->getInstruction()) {
+          auto instW = pdgUtils.getInstMap()[castInst];
+          getAccessTypeForInstW(instW, argW);
+        }
+      }
+
       AccessType accType = getAccessTypeForInstW(dataW, argW);
       if (static_cast<int>(accType) >
           static_cast<int>((*treeI)->getAccessType())) {

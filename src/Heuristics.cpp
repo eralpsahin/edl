@@ -75,6 +75,7 @@ void Heuristics::addSizeAttribute(std::string funcName, int argNum,
       auto paramDepList =
           PDG->getNodeDepList(llvm::dyn_cast<llvm::Instruction>(val));
       std::set<llvm::Instruction*> insts;  // insert alias insts here
+      insts.insert(llvm::dyn_cast<llvm::Instruction>(val));
       for (auto depPair : paramDepList) {
         InstructionWrapper* depInstW =
             const_cast<InstructionWrapper*>(depPair.first->getData());

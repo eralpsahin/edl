@@ -7,6 +7,7 @@
     {"name": "__memcpy_chk", "idx": [1], "size": [2]}
   ],
   "out": [
+    {"name": "\01_read", "idx": [1], "size": [2]},
    {"name": "__memcpy_chk", "idx": [0], "size": [2]},
    {"name": "__memmove_chk", "idx": [0], "size": [2]},
    {"name": "__memset_chk", "idx": [0], "size": [2]}
