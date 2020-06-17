@@ -142,7 +142,7 @@ void Heuristics::checkPrintf(llvm::CallInst* callInst, int argNum,
   if (printfFuncs.find(funcName) == printfFuncs.end()) return;
   unsigned startIdx = printfFuncs[funcName];
   if (llvm::Constant* cons =
-          llvm::dyn_cast<llvm::Constant>(callInst->getArgOperand(0))) {
+          llvm::dyn_cast<llvm::Constant>(callInst->getArgOperand(startIdx))) {
     if (llvm::GlobalVariable* var =
             llvm::dyn_cast<llvm::GlobalVariable>(cons->getOperand(0))) {
       if (llvm::ConstantDataArray* arr =

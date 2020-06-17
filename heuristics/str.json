@@ -14,6 +14,7 @@
     {"name": "strstr", "idx": [0,1]},
     {"name": "strdup", "idx": [0]},
     {"name": "strndup", "idx": [0]},
+    {"name": "strcasecmp", "idx": [0,1]},
     {"name": "\01_open", "idx": [0]},
     {"name": "\01_fopen", "idx": [0]},
     {"name": "__vsnprintf_chk", "idx": [4]},
