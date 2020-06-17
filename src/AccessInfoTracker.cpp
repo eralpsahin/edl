@@ -459,25 +459,105 @@ void pdg::AccessInfoTracker::getIntraFuncReadWriteInfoForArg(
     }
   }
 
-  auto main = pdgUtils.getFuncMap()[func]
-                  ->getDbgDeclareInstList()[0]
-                  ->getModule()
-                  ->getFunction(StringRef("main"));
-  for (auto callinst : pdgUtils.getFuncMap()[main]->getCallInstList()) {
-    if (callinst->getCalledFunction() != argW->getFunc()) continue;
-    if (callinst->getNumArgOperands() < argW->getArg()->getArgNo()) continue;
-    Value *v = callinst->getOperand(argW->getArg()->getArgNo());
-    if (isa<Instruction>(v) || isa<Argument>(v)) {
-      // V is used in inst
-      if (dyn_cast<Instruction>(v)) {
-        if (GetElementPtrInst *getEl =
-                dyn_cast<GetElementPtrInst>(dyn_cast<Instruction>(v))) {
-          Type *T = dyn_cast<PointerType>(getEl->getPointerOperandType())
-                        ->getElementType();
-          if (isa<ArrayType>(T)) {
-            argW->getAttribute().setCount(
-                std::to_string(T->getArrayNumElements()));
-          }
+  // TODO: convert this to a function
+  for (auto func : pdgUtils.getFuncMap()) {
+    if (!func.second->hasTrees()) {
+      PDG->buildPDGForFunc(func.second->getRetW()->getFunc());
+    }
+    for (auto ecallInst :
+         pdgUtils.getFuncMap()[func.first]->getCallInstList()) {
+      if (ecallInst->getCalledFunction() != argW->getFunc()) continue;
+      if (ecallInst->getNumArgOperands() < argW->getArg()->getArgNo()) continue;
+      Value *v = ecallInst->getOperand(argW->getArg()->getArgNo());
+      if (isa<Instruction>(v) || isa<Argument>(v)) {
+        // V is used in inst
+        if (dyn_cast<Instruction>(v)) {
+          // Get static array information
+          if (GetElementPtrInst *getEl =
+                  dyn_cast<GetElementPtrInst>(dyn_cast<Instruction>(v))) {
+            Type *T = dyn_cast<PointerType>(getEl->getPointerOperandType())
+                          ->getElementType();
+            if (isa<ArrayType>(T)) {
+              argW->getAttribute().setCount(
+                  std::to_string(T->getArrayNumElements()));
+            }
+          } /* else {
+            // Get malloc information
+            for (auto callinst :
+                 pdgUtils.getFuncMap()[func.first]->getCallInstList()) {
+              if (callinst->getCalledFunction()->getName() == "malloc") {
+                auto inst = callinst;
+                auto depList = PDG->getNodeDepList(inst);
+                for (auto depPair : depList) {
+                  if (!depPair.first) continue;
+                  InstructionWrapper *depInstW =
+                      const_cast<InstructionWrapper *>(
+                          depPair.first->getData());
+                  StoreInst *storeInst =
+                      dyn_cast<StoreInst>(depInstW->getInstruction());
+                  if (storeInst) {
+                    auto depList = PDG->getNodeDepList(storeInst);
+                    for (auto depPair : depList) {
+                      if (!depPair.first) continue;
+                      const InstructionWrapper *depInstW =
+                          depPair.first->getData();
+                      if (!depInstW) continue;
+                      if (depInstW && depInstW->getInstruction() ==
+                                          dyn_cast<Instruction>(v)) {
+                        if (ConstantInt *CI = dyn_cast<ConstantInt>(
+                                callinst->getOperand(0))) {
+                          // Count is a literal
+                          argW->getAttribute().setCount(
+                              std::to_string(CI->getZExtValue()));
+                        } else {
+                          Instruction *alias =
+                              dyn_cast<Instruction>(callinst->getArgOperand(0));
+                          if (SExtInst *sext = dyn_cast<SExtInst>(
+                                  callinst->getArgOperand(0))) {
+                            alias = dyn_cast<Instruction>(sext->getOperand(0));
+                          } else if (ZExtInst *zext = dyn_cast<ZExtInst>(
+                                         callinst->getArgOperand(0))) {
+                            alias = dyn_cast<Instruction>(zext->getOperand(0));
+                          }
+                          for (auto storeInst :
+                               pdgUtils.getFuncMap()[func.first]
+                                   ->getStoreInstList()) {
+                            depList = PDG->getNodeDepList(storeInst);
+                            std::set<Instruction *> deps;
+                            for (auto depPair : depList) {
+                              if (!depPair.first) continue;
+
+                              const InstructionWrapper *depInstW =
+                                  depPair.first->getData();
+                              deps.insert(depInstW->getInstruction());
+                            }
+                            if (deps.find(alias) != deps.end()) {
+                              for (int i = 0;
+                                   i < ecallInst->getNumArgOperands(); i += 1) {
+                                Instruction *arg = dyn_cast<Instruction>(
+                                    ecallInst->getArgOperand(i));
+                                if (deps.find(arg) != deps.end()) {
+                                  std::string argName = DIUtils::getArgName(
+                                      *(pdgUtils
+                                            .getFuncMap()
+                                                [ecallInst->getCalledFunction()]
+                                            ->getArgWByIdx(i)
+                                            ->getArg()),
+                                      pdgUtils.getFuncMap()[argW->getFunc()]
+                                          ->getDbgDeclareInstList());
+                                  argW->getAttribute().setCount(argName);
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } */
         }
       }
     }
