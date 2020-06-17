@@ -77,6 +77,9 @@ void pdg::AccessInfoTracker::createTrusted(std::string prefix, Module &M) {
   ecallsC.open("Ecalls.cpp");
   ecallsC << "#include \"Ecalls.h\"\n";
   ecallsC << "sgx_enclave_id_t global_eid = 0;\n";
+  for (auto func : mainClosure) {
+    getIntraFuncReadWriteInfoForFunc(*func);
+  }
 
   for (auto funcName : importedFuncList) {
     crossBoundary = false;
@@ -373,6 +376,8 @@ AccessType pdg::AccessInfoTracker::getAccessTypeForInstW(
             ArgumentWrapper *innerArgW = funcW->getArgWList()[argNum];
             if (innerArgW->getAttribute().isString())
               argW->getAttribute().setString();
+            else if (argW->getAttribute().isString())
+              innerArgW->getAttribute().setString();
           }
         }
       }
